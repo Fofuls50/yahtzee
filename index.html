@@ -215,49 +215,97 @@
   .btn.danger{background:var(--paper);border:1px solid var(--line);color:#c0392b}
   @media (prefers-color-scheme: dark){.btn.danger{color:#ff8b7a}}
 
-  /* ---------- Partage entre téléphones ---------- */
-  .board{
-    margin-top:12px;background:var(--card);border:1px solid var(--line);
-    border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px
+  /* ---------- Partie en ligne ---------- */
+  /* colonne du joueur sur son propre téléphone */
+  .mecol{background:color-mix(in srgb,var(--accent-soft) 55%,transparent)!important}
+  thead th.mecol{position:relative}
+  .metag{
+    display:block;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent-ink);margin-top:-3px
   }
-  .board-t{
-    font-size:10px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;
-    color:var(--muted);margin-bottom:6px
+  .cell.locked{color:var(--muted);cursor:default}
+  .cell.locked.empty{color:var(--line-strong)}
+
+  /* bandeau de statut sous la feuille */
+  .onl-bar{
+    margin-top:12px;display:flex;align-items:center;gap:9px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;padding:9px 11px;box-shadow:var(--shadow)
   }
-  .brow{
-    display:flex;align-items:center;gap:10px;padding:8px 0;
-    border-top:1px solid var(--line);font-size:14px;width:100%;text-align:left
+  .onl-dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .onl-dot.on{background:#33b36b;box-shadow:0 0 0 3px rgba(51,179,107,.18)}
+  .onl-dot.off{background:#d98a1f;box-shadow:0 0 0 3px rgba(217,138,31,.18)}
+  .onl-info{flex:1;min-width:0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl-info b{color:var(--ink);letter-spacing:.05em}
+  .onl-b{
+    flex:none;font-size:12px;font-weight:600;padding:7px 12px;border-radius:10px;
+    background:var(--paper);border:1px solid var(--line);color:var(--accent-ink)
   }
-  .brow:first-of-type{border-top:0}
-  .brow-n{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .brow-a{font-size:10.5px;color:var(--muted);font-weight:400;display:block;margin-top:1px}
-  .brow-s{flex:none;font-size:17px;font-weight:650;font-variant-numeric:tabular-nums}
-  .brow.me .brow-n{color:var(--accent-ink)}
-  .brow.lead .brow-s{color:var(--accent)}
-  .brow-go{flex:none;color:var(--line-strong);font-size:17px}
-  .board-b{display:flex;gap:8px;margin-top:12px}
-  .board-b button{
-    flex:1;height:44px;border-radius:12px;font-size:13px;font-weight:600;
-    background:var(--paper);border:1px solid var(--line);color:var(--accent-ink);
-    display:grid;place-items:center;line-height:1.2
+  .onl-b:active{transform:scale(.95)}
+
+  /* bouton « créer une partie en ligne » dans la fenêtre Joueurs */
+  .onl-go{
+    width:100%;height:48px;border-radius:13px;background:var(--accent);color:#fff;
+    font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px
   }
-  .board-b button:active{transform:scale(.96)}
-  .board-b button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  .onl-go:active{transform:scale(.97)}
+  .onl-ic{font-size:17px}
+  .onl-alt{
+    width:100%;height:46px;border-radius:13px;background:var(--paper);border:1px solid var(--line);
+    color:var(--accent-ink);font-size:14px;font-weight:600
+  }
+  .onl-hint{font-size:12px;color:var(--muted);line-height:1.5;margin:8px 2px 0;text-align:center}
+
+  /* panneau QR */
+  .onl-code{text-align:center;font-size:14px;color:var(--muted);margin-bottom:8px}
+  .onl-code b{font-size:22px;color:var(--ink);letter-spacing:.14em;font-variant-numeric:tabular-nums}
+  .onl-qr{
+    width:220px;max-width:64vw;margin:0 auto;padding:12px;background:#fff;border-radius:14px;
+    box-shadow:var(--shadow)
+  }
+  .onl-qr svg{display:block;width:100%}
+  .onl-share{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .onl-roster{margin-top:16px}
+  .onl-rt{font-size:10px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--muted);margin-bottom:4px}
+  .onl-p{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+  .onl-p:first-of-type{border-top:0}
+  .onl-pn{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .onl-ptag{font-size:10px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);
+    border-radius:999px;padding:2px 7px;margin-left:7px;text-transform:uppercase;letter-spacing:.04em}
+  .onl-pt{flex:none;font-size:16px;font-weight:650;font-variant-numeric:tabular-nums}
+  .onl-rm{flex:none;width:30px;height:30px;border-radius:8px;color:var(--muted);
+    background:var(--paper);border:1px solid var(--line);font-size:13px}
+  .onl-add{
+    width:100%;margin-top:10px;height:42px;border-radius:12px;background:var(--paper);
+    border:1px dashed var(--line-strong);color:var(--accent-ink);font-size:13px;font-weight:600
+  }
+  .onl-add:active{transform:scale(.97)}
+
+  .gj-in{
+    width:100%;height:52px;border-radius:13px;border:1px solid var(--line);background:var(--paper);
+    padding:0 14px;font-size:17px;font-weight:500;margin-top:4px;color:var(--ink)
+  }
+  .gj-in:focus{outline:2px solid var(--accent);outline-offset:-1px}
 
   .code-box{
-    width:100%;min-height:88px;border-radius:13px;border:1px solid var(--line);
-    background:var(--paper);padding:11px 12px;font-size:13px;font-family:ui-monospace,
+    width:100%;min-height:52px;border-radius:13px;border:1px solid var(--line);margin-top:14px;
+    background:var(--paper);padding:11px 12px;font-size:12px;font-family:ui-monospace,
     SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;line-height:1.5;
-    resize:none;color:var(--ink)
+    resize:none;color:var(--muted)
   }
   .code-box:focus{outline:2px solid var(--accent);outline-offset:-1px}
-  .gsheet{margin-top:4px}
-  .gsheet table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px}
-  .gsheet td{padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
-  .gsheet td:first-child{text-align:left;color:var(--muted);font-size:12.5px}
-  .gsheet td:last-child{text-align:right;font-weight:600;width:64px}
-  .gsheet tr.tot td{border-top:2px solid var(--line-strong);font-size:15px;font-weight:700}
-  .gsheet tr.tot td:first-child{color:var(--ink)}
+
+  /* chargeur plein écran */
+  .busy{
+    position:fixed;inset:0;z-index:60;display:none;place-items:center;
+    background:rgba(12,16,15,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+    color:#fff;font-size:14.5px;font-weight:500;text-align:center;padding:0 30px
+  }
+  .busy.on{display:grid}
+  .busy::before{
+    content:"";width:34px;height:34px;border-radius:50%;margin:0 auto 14px;
+    border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .8s linear infinite
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
 
   /* ---------- Fin de partie ---------- */
   .done{
@@ -479,7 +527,7 @@
     </div>
   </div>
 
-  <div id="share-wrap"></div>
+  <div id="online-wrap"></div>
   <div id="done-wrap"></div>
   <datalist id="known-names"></datalist>
 
@@ -487,6 +535,7 @@
 </div>
 
 <div class="backdrop" id="backdrop"></div>
+<div class="busy" id="busy"></div>
 
 <div class="modal" id="modal-score" role="dialog" aria-modal="true">
   <div class="grabber"></div>
@@ -500,24 +549,26 @@
   </div>
 </div>
 
-<div class="modal" id="modal-share" role="dialog" aria-modal="true">
+<div class="modal" id="modal-online" role="dialog" aria-modal="true">
   <div class="grabber"></div>
-  <div class="m-title" id="sh-title"></div>
-  <div class="m-sub" id="sh-sub"></div>
-  <div id="sh-body"></div>
+  <div class="m-title">Partie en ligne</div>
+  <div class="m-sub">Faites scanner ce code aux autres joueurs</div>
+  <div id="onl-body"></div>
   <div class="m-actions">
     <button class="btn ghost" data-close>Fermer</button>
+    <button class="btn danger" id="onl-leave">Quitter la partie</button>
   </div>
 </div>
 
-<div class="modal" id="modal-guest" role="dialog" aria-modal="true">
+<div class="modal" id="modal-join" role="dialog" aria-modal="true">
   <div class="grabber"></div>
-  <div class="m-title" id="gu-title"></div>
-  <div class="m-sub" id="gu-sub"></div>
-  <div class="gsheet" id="gu-body"></div>
+  <div class="m-title">Rejoindre la partie</div>
+  <div class="m-sub">Partie <b id="gj-code"></b> — quel est votre nom ?</div>
+  <input id="gj-name" class="gj-in" maxlength="12" placeholder="Votre nom"
+         autocomplete="off" autocapitalize="words" list="known-names">
   <div class="m-actions">
-    <button class="btn ghost" data-close>Fermer</button>
-    <button class="btn danger" id="gu-del">Retirer</button>
+    <button class="btn ghost" data-close>Annuler</button>
+    <button class="btn" style="background:var(--accent);color:#fff" id="gj-go">Rejoindre</button>
   </div>
 </div>
 
@@ -572,10 +623,7 @@
   <div class="grabber"></div>
   <div class="m-title">Joueurs</div>
   <div class="m-sub" id="mp-sub"></div>
-  <div class="seg" id="mp-mode">
-    <button data-mode="table">Feuille de toute la table</button>
-    <button data-mode="solo">Ma feuille seulement</button>
-  </div>
+  <div id="mp-online"></div>
   <div class="plist" id="mp-list"></div>
   <div class="m-actions">
     <button class="btn ghost" id="mp-add">＋ Ajouter</button>
@@ -652,13 +700,24 @@
 
   function mk(name){ return { id:"p"+Math.random().toString(36).slice(2,9), name:name, s:{}, bonusYams:0 }; }
 
-  /* mode : "table" = ce téléphone tient la feuille de tout le monde (par défaut)
-            "solo"  = ce téléphone est celui d'un seul joueur, les autres arrivent
-                      par partage et sont rangés dans state.guests */
-  if(state.mode !== "solo") state.mode = "table";
-  if(!Array.isArray(state.guests)) state.guests = [];
-  function soloMode(){ return state.mode === "solo"; }
-  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  /* ---------------- session en ligne ----------------
+     OL vaut null en jeu local ; sinon c'est le contrôleur de la partie en ligne
+     (défini plus bas). En ligne, state.players reflète en direct la base Firebase,
+     chaque joueur portant en plus .uid (son identité) et .id (sa clé Firebase). */
+  var OL = null;
+  function online(){ return !!OL; }
+  function isMe(p){ return !!(OL && p.uid && p.uid === OL.uid); }
+  function amHost(){ return !!(OL && OL.uid === OL.host); }
+  /* qui peut modifier une colonne : la sienne, plus l'hôte partout
+     (y compris les joueurs sans téléphone, dont uid est absent) */
+  function canEdit(p){
+    if(!OL) return true;
+    return amHost() || (p.uid && p.uid === OL.uid);
+  }
+  function save(){
+    if(OL) return;   /* en ligne, la source de vérité est Firebase, pas localStorage */
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  }
   function load(){
     try{
       var raw = localStorage.getItem(KEY);
@@ -683,78 +742,86 @@
 
   function render(){
     var pl = state.players, n = pl.length;
+    var addable = !OL && n < MAX;          /* colonne « + » : jamais en ligne */
     var h = "";
 
     h += "<colgroup><col class='cat'>";
     for(var i=0;i<n;i++) h += "<col class='pl'>";
-    if(n<MAX) h += "<col style='width:44px'>";
+    if(addable) h += "<col style='width:44px'>";
     h += "</colgroup>";
 
     /* en-tête */
     h += "<thead><tr><th class='cat-h'></th>";
     pl.forEach(function(p,i){
-      h += "<th><input class='pname' value='"+esc(p.name)+"' data-name='"+i+"' list='known-names' "+
-           "maxlength='12' autocomplete='off' autocapitalize='words' spellcheck='false'></th>";
+      var ro = OL && !canEdit(p);          /* nom non modifiable pour les colonnes des autres */
+      h += "<th"+(isMe(p)?" class='mecol'":"")+"><input class='pname' value='"+esc(p.name)+
+           "' data-name='"+i+"' list='known-names' maxlength='12' autocomplete='off' "+
+           "autocapitalize='words' spellcheck='false'"+(ro?" readonly":"")+">"+
+           (isMe(p)?"<span class='metag'>moi</span>":"")+"</th>";
     });
-    if(n<MAX) h += "<th><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
+    if(addable) h += "<th><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
     h += "</tr></thead><tbody>";
 
-    var span = n + (n<MAX?1:0);
+    var span = n + (addable?1:0);
 
     h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section haute</th></tr>";
-    UP.forEach(function(c){ h += row(c, pl, n); });
+    UP.forEach(function(c){ h += row(c, pl, addable); });
 
-    h += calcRow("Total haut", pl, n, function(p){ return sumUp(p); });
+    h += calcRow("Total haut", pl, addable, function(p){ return sumUp(p); });
     h += "<tr class='calc'><th data-info='__bonus'>"+
          catLabel({ label:"Bonus", sub:"à partir de 63 points" })+"</th>";
     pl.forEach(function(p){
       var s = sumUp(p), b = bonusUp(p);
-      h += "<td>"+(b?"+35":"—")+"<span class='bonus-track'>"+s+"/63</span></td>";
+      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+(b?"+35":"—")+
+           "<span class='bonus-track'>"+s+"/63</span></td>";
     });
-    if(n<MAX) h += "<td></td>";
+    if(addable) h += "<td></td>";
     h += "</tr>";
 
     h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section basse</th></tr>";
-    LOW.forEach(function(c){ h += row(c, pl, n); });
+    LOW.forEach(function(c){ h += row(c, pl, addable); });
 
     h += "<tr><th data-info='__yb'>"+
          catLabel({ label:"Bonus Yam's", sub:"+100 par Yam's en plus" })+"</th>";
     pl.forEach(function(p,i){
-      var v = p.bonusYams||0;
-      h += "<td><button class='cell "+(v?"":"empty")+"' data-cell='"+i+"' data-cat='__yb'>"+(v? "+"+(v*100) : "–")+"</button></td>";
+      var v = p.bonusYams||0, ed = canEdit(p);
+      var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
+      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='__yb'>"+
+           (v? "+"+(v*100) : "–")+"</button></td>";
     });
-    if(n<MAX) h += "<td></td>";
+    if(addable) h += "<td></td>";
     h += "</tr>";
 
-    h += calcRow("Total bas", pl, n, function(p){ return totalLow(p); });
+    h += calcRow("Total bas", pl, addable, function(p){ return totalLow(p); });
 
     var best = Math.max.apply(null, pl.map(grand));
     h += "<tr class='total'><th>TOTAL</th>";
     pl.forEach(function(p){
       var g = grand(p);
-      var lead = (pl.length>1 && g===best && g>0) ? " class='lead'" : "";
-      h += "<td"+lead+">"+g+"</td>";
+      var lead = (pl.length>1 && g===best && g>0) ? " lead" : "";
+      h += "<td class='"+(isMe(p)?"mecol":"")+lead+"'>"+g+"</td>";
     });
-    if(n<MAX) h += "<td></td>";
+    if(addable) h += "<td></td>";
     h += "</tr></tbody>";
 
     grid.innerHTML = h;
     document.getElementById("known-names").innerHTML =
       knownNames().map(function(n){ return "<option value='"+esc(n)+"'>"; }).join("");
-    renderBoard();
+    renderOnline();
     renderDone();
     save();
   }
 
-  function row(c, pl, n){
+  function row(c, pl, addable){
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
     pl.forEach(function(p,i){
-      var v = p.s[c.id];
-      var cls = v===undefined||v===null ? "cell empty" : (v===0 ? "cell zero" : "cell");
+      var v = p.s[c.id], ed = canEdit(p);
+      var cls = (v===undefined||v===null ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
+                (isMe(p)?" mecol":"")+(ed?"":" locked");
       var txt = v===undefined||v===null ? "–" : (v===0 ? "✕" : v);
-      h += "<td><button class='"+cls+"' data-cell='"+i+"' data-cat='"+c.id+"'>"+txt+"</button></td>";
+      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'>"+txt+"</button></td>";
     });
-    if(n<MAX) h += "<td></td>";
+    if(addable) h += "<td></td>";
     return h + "</tr>";
   }
 
@@ -767,10 +834,10 @@
       "</span><span class='cat-sub'>"+c.sub+"</span></span></div>";
   }
 
-  function calcRow(label, pl, n, fn){
+  function calcRow(label, pl, addable, fn){
     var h = "<tr class='calc'><th>"+label+"</th>";
-    pl.forEach(function(p){ h += "<td>"+fn(p)+"</td>"; });
-    if(n<MAX) h += "<td></td>";
+    pl.forEach(function(p){ h += "<td"+(isMe(p)?" class='mecol'":"")+">"+fn(p)+"</td>"; });
+    if(addable) h += "<td></td>";
     return h + "</tr>";
   }
 
@@ -876,14 +943,18 @@
     var b = e.target.closest("[data-val]"); if(!b || !cur) return;
     var v = parseInt(b.getAttribute("data-val"),10);
     var p = state.players[cur.pi];
+    if(OL && !canEdit(p)){ close(); return; }
     if(cur.cat === "__yb") p.bonusYams = v; else p.s[cur.cat] = v;
+    if(OL) pushValue(p, cur.cat, v);
     close(); render();
   });
 
   document.getElementById("ms-clear").addEventListener("click", function(){
     if(!cur) return;
     var p = state.players[cur.pi];
+    if(OL && !canEdit(p)){ close(); return; }
     if(cur.cat === "__yb") p.bonusYams = 0; else delete p.s[cur.cat];
+    if(OL) pushValue(p, cur.cat, null);
     close(); render();
   });
 
@@ -897,16 +968,16 @@
   });
   grid.addEventListener("input", function(e){
     var f = e.target.closest("[data-name]"); if(!f) return;
-    state.players[+f.getAttribute("data-name")].name = f.value;
-    save();
+    var i = +f.getAttribute("data-name"), p = state.players[i];
+    if(OL && !canEdit(p)) return;
+    p.name = f.value; save();
   });
   grid.addEventListener("change", function(e){
     var f = e.target.closest("[data-name]"); if(!f) return;
-    if(!f.value.trim()){
-      var i = +f.getAttribute("data-name");
-      state.players[i].name = "Joueur " + (i+1);
-      render();
-    }
+    var i = +f.getAttribute("data-name"), p = state.players[i];
+    if(OL && !canEdit(p)) return;
+    if(!f.value.trim()){ p.name = OL ? (isMe(p)?"Moi":"Joueur") : "Joueur " + (i+1); render(); }
+    if(OL) pushName(p);
   });
 
   /* --- gestion des joueurs --- */
@@ -919,12 +990,13 @@
   function renderPlayers(){
     var n = state.players.length, known = knownNames();
 
-    document.getElementById("mp-sub").textContent = soloMode()
-      ? "Ce téléphone est le vôtre ; les autres joueurs arrivent par partage"
-      : "2 à 6 joueurs sur ce téléphone";
-    document.querySelectorAll("#mp-mode button").forEach(function(b){
-      b.classList.toggle("on", b.getAttribute("data-mode") === state.mode);
-    });
+    document.getElementById("mp-sub").textContent = "2 à 6 joueurs sur ce téléphone";
+    document.getElementById("mp-online").innerHTML =
+      "<button class='btn onl-go' id='mp-create'>"+
+        "<span class='onl-ic'>🌐</span>Créer une partie en ligne"+
+      "</button>"+
+      "<p class='onl-hint'>Chacun sur son téléphone, scores en direct. "+
+      "Les autres rejoignent en scannant un QR code.</p>";
     document.getElementById("mp-list").innerHTML = state.players.map(function(p,i){
       /* on ne propose pas un nom déjà porté par un autre joueur de la partie */
       var pris = state.players.filter(function(q,j){ return j !== i; })
@@ -949,31 +1021,11 @@
           "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>"+
         "</button></div>" + chips;
     }).join("");
-    /* en mode solo, un seul joueur local : ni ajout ni retrait */
-    document.getElementById("mp-add").style.display = (soloMode() || n>=MAX) ? "none" : "";
-    if(soloMode()) document.querySelectorAll("#mp-list .rm").forEach(function(b){
-      b.style.opacity = ".25"; b.style.pointerEvents = "none";
-    });
+    document.getElementById("mp-add").style.display = n>=MAX ? "none" : "";
   }
 
-  document.getElementById("mp-mode").addEventListener("click", function(e){
-    var b = e.target.closest("[data-mode]"); if(!b) return;
-    var m = b.getAttribute("data-mode");
-    if(m === state.mode) return;
-
-    if(m === "solo" && state.players.length > 1){
-      var perdus = state.players.slice(1).filter(function(p){
-        return Object.keys(p.s).length || p.bonusYams;
-      });
-      if(perdus.length && !confirm("Passer en « ma feuille seulement » ne gardera que "+
-         (state.players[0].name || "le premier joueur")+
-         ". Les scores des autres joueurs de ce téléphone seront perdus. Continuer ?")) return;
-      state.players = state.players.slice(0, 1);
-    }
-    if(m === "table" && state.players.length < 2) state.players.push(mk("Joueur 2"));
-
-    state.mode = m;
-    render(); renderPlayers();
+  document.getElementById("mp-online").addEventListener("click", function(e){
+    if(e.target.closest("#mp-create")) createGame();
   });
 
   /* Les pastilles du joueur touché s'affichent ; on ne les masque jamais au blur,
@@ -987,7 +1039,8 @@
   });
 
   document.getElementById("btn-players").addEventListener("click", function(){
-    renderPlayers(); open(mPlayers);
+    if(OL){ renderOnlineModal(); open(mOnline); }
+    else { renderPlayers(); open(mPlayers); }
   });
   document.getElementById("mp-add").addEventListener("click", addPlayer);
   document.getElementById("mp-list").addEventListener("input", function(e){
@@ -1013,6 +1066,11 @@
 
   /* --- nouvelle partie --- */
   document.getElementById("btn-new").addEventListener("click", function(){
+    if(OL){
+      if(gameComplete() && !OL.archived && confirm("Enregistrer cette partie dans l'historique avant de quitter ?")) archive();
+      promptLeave();
+      return;
+    }
     if(!gameStarted()){ resetGame(); return; }
     if(gameComplete() && !state.archived){
       if(confirm("Enregistrer cette partie terminée dans l'historique ?")) archive();
@@ -1381,13 +1439,7 @@
   }
 
   function sheetFull(p){ return CATS.every(function(c){ return p.s[c.id] !== undefined; }); }
-  function localComplete(){ return state.players.every(sheetFull); }
-  function missingGuests(){
-    return state.guests.filter(function(g){ return !sheetFull(guestAsPlayer(g)); })
-                       .map(function(g){ return g.n; });
-  }
-  /* la partie n'est complète que si toutes les feuilles connues le sont */
-  function gameComplete(){ return localComplete() && !missingGuests().length; }
+  function gameComplete(){ return state.players.length > 0 && state.players.every(sheetFull); }
   function gameStarted(){
     return state.players.some(function(p){
       return CATS.some(function(c){ return p.s[c.id] !== undefined; }) || p.bonusYams;
@@ -1396,19 +1448,19 @@
 
   /* une partie archivée : date + une ligne par joueur */
   function archive(){
-    var tous = state.players.concat(state.guests.map(guestAsPlayer));
-    var rec = { d: Date.now(), p: tous.map(function(p){
+    var rec = { d: Date.now(), p: state.players.map(function(p){
       return { n:(p.name||"?").trim(), t:grand(p), u:sumUp(p), b:bonusUp(p)?1:0,
                y:p.s.yams||0, yb:p.bonusYams||0 };
     })};
     var h = loadHist(); h.push(rec); saveHist(h);
-    state.archived = true; save();
+    state.archived = true;
+    if(OL){ OL.archived = true; try{ localStorage.setItem(OLKEY_ARCH+OL.gid, "1"); }catch(e){} }
+    else save();
     return rec;
   }
 
   function resetGame(){
     state.players.forEach(function(p){ p.s = {}; p.bonusYams = 0; });
-    state.guests = [];
     state.archived = false;
     render();
   }
@@ -1416,24 +1468,16 @@
   /* bannière de fin de partie, sous la feuille */
   function renderDone(){
     var w = document.getElementById("done-wrap");
-
-    /* ma feuille est finie mais il manque celle de quelqu'un */
-    if(localComplete() && missingGuests().length){
-      var att = missingGuests().map(esc).join(", ");
-      w.innerHTML = "<div class='done saved'><div class='done-t'>Votre feuille est terminée.<br>"+
-                    "En attente de : <b>"+att+"</b></div>"+
-                    "<button data-share='in'>Recevoir</button></div>";
-      return;
-    }
     if(!gameComplete()){ w.innerHTML = ""; return; }
 
-    var tous = state.players.concat(state.guests.map(guestAsPlayer));
-    var best = Math.max.apply(null, tous.map(grand));
-    var champs = tous.filter(function(p){ return grand(p) === best; });
+    var best = Math.max.apply(null, state.players.map(grand));
+    var champs = state.players.filter(function(p){ return grand(p) === best; });
     var who = champs.map(function(p){ return esc(p.name); }).join(" et ");
-    if(state.archived){
+    var archived = OL ? OL.archived : state.archived;
+
+    if(archived){
       w.innerHTML = "<div class='done saved'><div class='done-t'>Partie enregistrée dans l'historique.</div>"+
-                    "<button data-newgame>Nouvelle partie</button></div>";
+                    "<button data-newgame>"+(OL?"Quitter":"Nouvelle partie")+"</button></div>";
     } else {
       w.innerHTML = "<div class='done'><div class='done-t'>🏆 <b>"+who+"</b><br>"+
                     (champs.length>1 ? "à égalité avec " : "gagne avec ")+best+" points</div>"+
@@ -1443,9 +1487,7 @@
 
   document.getElementById("done-wrap").addEventListener("click", function(e){
     if(e.target.closest("[data-archive]")){ archive(); render(); return; }
-    if(e.target.closest("[data-newgame]")){ resetGame(); return; }
-    var s = e.target.closest("[data-share]");
-    if(s) openShare(s.getAttribute("data-share"));
+    if(e.target.closest("[data-newgame]")){ OL ? promptLeave() : resetGame(); return; }
   });
 
   /* ================= STATISTIQUES ================= */
@@ -1697,240 +1739,397 @@
     e.target.value = "";
   });
 
-  /* ================= PARTAGE ENTRE TÉLÉPHONES ================= */
+  /* ================= PARTIE EN LIGNE (Firebase) ================= */
 
-  /* Une feuille tient en 14 caractères : 13 cases + le bonus Yam's.
-     Chaque valeur (0 à 50) devient un caractère ; "." = case vide. */
-  var CH = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-  var ORDER = CATS.map(function(c){ return c.id; });
+  var FB_KEY = "AIzaSyDSFv9XiH-DqUePLR2MeG2rScm8-wTBgy8";
+  var FB_DB  = "https://yams-461f3-default-rtdb.europe-west1.firebasedatabase.app";
+  var OLKEY = "yams.online.v1";       /* session pour reconnexion */
+  var OLKEY_ARCH = "yams.olarch.";    /* + gid : "1" si la partie a été archivée ici */
+  var GID_RE = /[A-Z0-9]{4,10}/;
+  var mOnline = document.getElementById("modal-online");
+  var mJoin   = document.getElementById("modal-join");
 
-  function encodeSheet(p){
-    var s = ORDER.map(function(id){
-      var v = p.s[id];
-      return (v === undefined || v === null) ? "." : CH.charAt(v);
-    }).join("");
-    return encodeURIComponent((p.name || "?").trim()) + "~" + s + CH.charAt(p.bonusYams || 0);
+  /* ---------- Encodeur QR (versions 1-5, niveau L) ----------
+     Validé par décodeur indépendant : voir historique du projet. */
+  var EC_L = {1:7,2:10,3:15,4:20,5:26};
+  function qgeom(v){ var s=17+4*v,m=s*s; m-=192; m-=2*(s-16); if(v>=2)m-=25; m-=31;
+    return { size:s, total:Math.floor(m/8) }; }
+  var QEXP=new Array(512), QLOG=new Array(256);
+  (function(){ var x=1; for(var i=0;i<255;i++){ QEXP[i]=x; QLOG[x]=i; x<<=1; if(x&0x100)x^=0x11D; }
+    for(i=255;i<512;i++) QEXP[i]=QEXP[i-255]; })();
+  function qmul(a,b){ return (a===0||b===0)?0:QEXP[QLOG[a]+QLOG[b]]; }
+  function qgen(n){ var g=[1]; for(var i=0;i<n;i++){ var ng=new Array(g.length+1);
+    for(var z=0;z<ng.length;z++) ng[z]=0;
+    for(var j=0;j<g.length;j++){ ng[j]^=qmul(g[j],1); ng[j+1]^=qmul(g[j],QEXP[i]); } g=ng; } return g; }
+  function qrs(d,n){ var g=qgen(n),r=d.slice(); for(var z=0;z<n;z++) r.push(0);
+    for(var i=0;i<d.length;i++){ var c=r[i]; if(!c) continue;
+      for(var j=0;j<g.length;j++) r[i+j]^=qmul(g[j],c); } return r.slice(d.length); }
+  function qutf8(s){ var o=[],e=unescape(encodeURIComponent(s)); for(var i=0;i<e.length;i++) o.push(e.charCodeAt(i)); return o; }
+  function qbch(d){ var v=d<<10; for(var i=14;i>=10;i--) if(v&(1<<i)) v^=0x537<<(i-10); return ((d<<10)|v)^0x5412; }
+  var QMASK=[function(i,j){return(i+j)%2===0;},function(i,j){return i%2===0;},function(i,j){return j%3===0;},
+    function(i,j){return(i+j)%3===0;},function(i,j){return(Math.floor(i/2)+Math.floor(j/3))%2===0;},
+    function(i,j){return(i*j)%2+(i*j)%3===0;},function(i,j){return((i*j)%2+(i*j)%3)%2===0;},
+    function(i,j){return((i+j)%2+(i*j)%3)%2===0;}];
+  function qfmt(t,mask,size){ var b=qbch((1<<3)|mask);
+    for(var i=0;i<15;i++){ var x=(b>>i)&1;
+      if(i<6) t[i][8]=x; else if(i<8) t[i+1][8]=x; else t[size-15+i][8]=x;
+      if(i<8) t[8][size-i-1]=x; else if(i<9) t[8][15-i-1+1]=x; else t[8][15-i-1]=x; }
+    t[size-8][8]=1; }
+  function qpen(t,size){ var p=0,i,j,k,run,dark=0;
+    for(i=0;i<size;i++){ run=1; for(j=1;j<size;j++){ if(t[i][j]===t[i][j-1])run++; else{ if(run>=5)p+=3+(run-5); run=1; } } if(run>=5)p+=3+(run-5);
+      run=1; for(j=1;j<size;j++){ if(t[j][i]===t[j-1][i])run++; else{ if(run>=5)p+=3+(run-5); run=1; } } if(run>=5)p+=3+(run-5); }
+    for(i=0;i<size-1;i++) for(j=0;j<size-1;j++){ var s=t[i][j]+t[i][j+1]+t[i+1][j]+t[i+1][j+1]; if(s===0||s===4)p+=3; }
+    var P=[1,0,1,1,1,0,1,0,0,0,0],P2=[0,0,0,0,1,0,1,1,1,0,1];
+    function look(get){ for(i=0;i<size;i++) for(j=0;j<=size-11;j++){ var a=true,b=true;
+      for(k=0;k<11;k++){ if(get(i,j+k)!==P[k])a=false; if(get(i,j+k)!==P2[k])b=false; } if(a)p+=40; if(b)p+=40; } }
+    look(function(a,b){return t[a][b];}); look(function(a,b){return t[b][a];});
+    for(i=0;i<size;i++) for(j=0;j<size;j++) if(t[i][j])dark++;
+    p+=Math.floor(Math.abs(dark*100/(size*size)-50)/5)*10; return p; }
+  function qrEncode(text){ var bytes=qutf8(text),v=0,gg,dataCw;
+    for(var k=1;k<=5;k++){ gg=qgeom(k); dataCw=gg.total-EC_L[k]; if(bytes.length+2<=dataCw){ v=k; break; } }
+    if(!v) throw new Error("trop long");
+    gg=qgeom(v); dataCw=gg.total-EC_L[v];
+    var bits=[]; function push(val,n){ for(var i=n-1;i>=0;i--) bits.push((val>>i)&1); }
+    push(4,4); push(bytes.length,8); bytes.forEach(function(b){ push(b,8); });
+    var cap=dataCw*8; for(var t=0;t<4&&bits.length<cap;t++) bits.push(0);
+    while(bits.length%8) bits.push(0);
+    var cw=[]; for(var i=0;i<bits.length;i+=8){ var b=0; for(var j=0;j<8;j++) b=(b<<1)|bits[i+j]; cw.push(b); }
+    var pad=[0xEC,0x11],pp=0; while(cw.length<dataCw) cw.push(pad[pp++&1]);
+    var all=cw.concat(qrs(cw,EC_L[v]));
+    var size=gg.size,m=[],fn=[];
+    for(i=0;i<size;i++){ m.push(new Array(size)); fn.push(new Array(size));
+      for(var z=0;z<size;z++){ m[i][z]=0; fn[i][z]=false; } }
+    function set(r,c,val){ m[r][c]=val; fn[r][c]=true; }
+    function finder(r,c){ for(var dr=-1;dr<=7;dr++) for(var dc=-1;dc<=7;dc++){ var rr=r+dr,cc=c+dc;
+      if(rr<0||cc<0||rr>=size||cc>=size) continue;
+      var on=(dr>=0&&dr<=6&&(dc===0||dc===6))||(dc>=0&&dc<=6&&(dr===0||dr===6))||(dr>=2&&dr<=4&&dc>=2&&dc<=4);
+      set(rr,cc,on?1:0); } }
+    finder(0,0); finder(0,size-7); finder(size-7,0);
+    if(v>=2){ var a=4*v+10; for(var dr=-2;dr<=2;dr++) for(var dc=-2;dc<=2;dc++)
+      set(a+dr,a+dc,(Math.max(Math.abs(dr),Math.abs(dc))!==1)?1:0); }
+    for(i=8;i<size-8;i++){ set(6,i,i%2===0?1:0); set(i,6,i%2===0?1:0); }
+    for(i=0;i<9;i++){ if(!fn[8][i]) set(8,i,0); if(!fn[i][8]) set(i,8,0); }
+    for(i=0;i<8;i++){ set(8,size-1-i,0); set(size-1-i,8,0); }
+    set(size-8,8,1);
+    var bi=0,dir=-1,row=size-1;
+    for(var col=size-1;col>0;col-=2){ if(col===6) col--;
+      for(;;){ for(var c2=0;c2<2;c2++){ var x=col-c2;
+        if(!fn[row][x]){ var bit=0; if(bi<all.length*8) bit=(all[bi>>3]>>(7-(bi&7)))&1; m[row][x]=bit; bi++; } }
+        row+=dir; if(row<0||row>=size){ row-=dir; dir=-dir; break; } } }
+    var bestM=null,bestPen=Infinity;
+    for(var mk=0;mk<8;mk++){ var t2=m.map(function(r){ return r.slice(); });
+      for(i=0;i<size;i++) for(var j=0;j<size;j++) if(!fn[i][j]&&QMASK[mk](i,j)) t2[i][j]^=1;
+      qfmt(t2,mk,size); var pen=qpen(t2,size); if(pen<bestPen){ bestPen=pen; bestM=t2; } }
+    return { m:bestM, size:size };
+  }
+  function qrSVG(text){
+    var q; try{ q=qrEncode(text); }catch(e){ return "<div class='onl-hint'>Lien trop long pour un QR.</div>"; }
+    var m=q.m,n=q.size,quiet=4,dim=n+quiet*2,rects="";
+    for(var r=0;r<n;r++) for(var c=0;c<n;c++) if(m[r][c])
+      rects+="<rect x='"+(c+quiet)+"' y='"+(r+quiet)+"' width='1' height='1'/>";
+    return "<svg viewBox='0 0 "+dim+" "+dim+"' shape-rendering='crispEdges' "+
+      "xmlns='http://www.w3.org/2000/svg'><rect width='"+dim+"' height='"+dim+"' fill='#fff'/>"+
+      "<g fill='#000'>"+rects+"</g></svg>";
   }
 
-  function decodeSheet(str){
-    var i = str.indexOf("~");
-    if(i < 0) return null;
-    var name = decodeURIComponent(str.slice(0, i));
-    var body = str.slice(i + 1);
-    if(body.length !== ORDER.length + 1) return null;
-    var sc = {};
-    for(var k = 0; k < ORDER.length; k++){
-      var c = body.charAt(k);
-      if(c === ".") continue;
-      var v = CH.indexOf(c);
-      if(v < 0) return null;
-      sc[ORDER[k]] = v;
-    }
-    var yb = CH.indexOf(body.charAt(ORDER.length));
-    return { n:name, s:sc, yb: yb < 0 ? 0 : yb };
-  }
-
-  /* charge utile = toutes les feuilles que ce téléphone connaît */
-  function buildPayload(all){
-    var list = state.players.map(encodeSheet);
-    if(all) state.guests.forEach(function(g){
-      list.push(encodeSheet({ name:g.n, s:g.s, bonusYams:g.yb }));
+  /* ---------- Firebase REST + authentification anonyme ---------- */
+  function fbJSON(url, opts){
+    return fetch(url, opts).then(function(r){
+      return r.text().then(function(t){ var j=null; try{ j=t?JSON.parse(t):null; }catch(e){}
+        return { ok:r.ok, status:r.status, body:j }; });
     });
-    return "Y1|" + list.join("|");
+  }
+  function fbSignIn(){
+    return fbJSON("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key="+FB_KEY, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ returnSecureToken:true })
+    }).then(function(r){ if(!r.ok) throw new Error("auth");
+      return { uid:r.body.localId, token:r.body.idToken, refresh:r.body.refreshToken, at:Date.now() }; });
+  }
+  function fbRefresh(refresh){
+    return fbJSON("https://securetoken.googleapis.com/v1/token?key="+FB_KEY, {
+      method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(refresh)
+    }).then(function(r){ if(!r.ok) throw new Error("refresh");
+      return { uid:r.body.user_id, token:r.body.id_token, refresh:r.body.refresh_token, at:Date.now() }; });
+  }
+  function dbUrl(path){ return FB_DB+"/"+path+".json?auth="+encodeURIComponent(OL.token); }
+  function dbGet(path){ return fbJSON(dbUrl(path)); }
+  function dbPut(path,val){ return fetch(dbUrl(path),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)}); }
+  function dbDel(path){ return fetch(dbUrl(path),{method:"DELETE"}); }
+
+  /* ---------- Chargeur ---------- */
+  var busyEl = document.getElementById("busy");
+  function busy(msg){ busyEl.textContent = msg||"…"; busyEl.classList.add("on"); }
+  function unbusy(){ busyEl.classList.remove("on"); }
+
+  /* ---------- Session ---------- */
+  function newGid(){ var A="ABCDEFGHJKMNPQRSTUVWXYZ23456789",s=""; for(var i=0;i<6;i++) s+=A.charAt(Math.floor(Math.random()*A.length)); return s; }
+  function myName(){ for(var i=0;i<state.players.length;i++) if(isMe(state.players[i])) return state.players[i].name; return "Moi"; }
+  function joinURL(){ return location.href.split("#")[0] + "#j=" + OL.gid; }
+
+  function persistSession(){
+    try{ localStorage.setItem(OLKEY, JSON.stringify({ gid:OL.gid, pid:OL.myPid, refresh:OL.refresh })); }catch(e){}
   }
 
-  function readPayload(txt){
-    txt = (txt || "").trim();
-    var h = txt.indexOf("#y=");
-    if(h >= 0) txt = txt.slice(h + 3);
-    try{ txt = decodeURIComponent(txt); }catch(e){}
-    txt = txt.trim();
-    if(txt.indexOf("Y1|") !== 0) return null;
-    var out = [];
-    txt.slice(3).split("|").forEach(function(part){
-      var d = decodeSheet(part);
-      if(d) out.push(d);
-    });
-    return out.length ? out : null;
+  function applyData(data){
+    OL.data = data || {};
+    OL.host = OL.data.host || OL.host;
+    var ps = OL.data.players || {};
+    state.players = Object.keys(ps).map(function(pid){
+      var p = ps[pid] || {};
+      return { id:pid, name:(p.name||"?"), uid:p.uid||null, order:(typeof p.order==="number"?p.order:0),
+               s:p.s||{}, bonusYams:p.yb||0 };
+    }).sort(function(a,b){ return a.order-b.order || (a.id<b.id?-1:1); });
+    render();
+    if(mOnline.classList.contains("on")) renderOnlineModal();
+    if(mPlayers.classList.contains("on")) close();
   }
 
-  /* fusionne les feuilles reçues : on ignore la sienne, on remplace par nom */
-  function mergeSheets(list){
-    var mine = state.players.map(function(p){ return (p.name||"").trim().toLowerCase(); });
-    var add = 0, upd = 0;
-    list.forEach(function(d){
-      var n = d.n.trim();
-      if(!n || mine.indexOf(n.toLowerCase()) >= 0) return;
-      var ex = null;
-      for(var i = 0; i < state.guests.length; i++){
-        if(state.guests[i].n.trim().toLowerCase() === n.toLowerCase()){ ex = state.guests[i]; break; }
-      }
-      if(ex){ ex.s = d.s; ex.yb = d.yb; ex.at = Date.now(); upd++; }
-      else { state.guests.push({ n:n, s:d.s, yb:d.yb, at:Date.now() }); add++; }
-    });
-    if(add || upd){ state.archived = false; save(); render(); }
-    return { add:add, upd:upd };
-  }
+  function setConn(b){ if(OL){ OL.connected=b; renderOnline(); } }
 
-  /* totaux d'une feuille reçue : mêmes règles que pour un joueur local */
-  function guestAsPlayer(g){ return { name:g.n, s:g.s, bonusYams:g.yb }; }
-
-  function ago(ts){
-    var m = Math.round((Date.now() - ts) / 60000);
-    if(m < 1) return "à l'instant";
-    if(m < 60) return "il y a " + m + " min";
-    var h = Math.round(m / 60);
-    return h < 24 ? "il y a " + h + " h" : "il y a " + Math.round(h/24) + " j";
-  }
-
-  /* ---- tableau des scores sous la feuille ---- */
-  function renderBoard(){
-    var w = document.getElementById("share-wrap");
-    if(!soloMode() && !state.guests.length){ w.innerHTML = ""; return; }
-
-    var lignes = state.players.map(function(p, i){
-      return { n:p.name, t:grand(p), me:true, i:i };
-    }).concat(state.guests.map(function(g, i){
-      return { n:g.n, t:grand(guestAsPlayer(g)), me:false, i:i, at:g.at };
-    }));
-    var best = Math.max.apply(null, lignes.map(function(l){ return l.t; }));
-
-    var h = "<div class='board'><div class='board-t'>Scores de la table</div>"+
-      lignes.slice().sort(function(a,b){ return b.t - a.t; }).map(function(l){
-        return "<button class='brow"+(l.me?" me":"")+(l.t===best&&l.t>0?" lead":"")+"'"+
-          (l.me ? " disabled" : " data-guest='"+l.i+"'")+">"+
-          "<span class='brow-n'>"+esc(l.n)+(l.me?" (moi)":"")+
-            (l.me ? "" : "<span class='brow-a'>"+ago(l.at)+"</span>")+"</span>"+
-          "<span class='brow-s'>"+l.t+"</span>"+
-          (l.me ? "" : "<span class='brow-go'>›</span>")+"</button>";
-      }).join("");
-
-    h += "<div class='board-b'>"+
-      "<button class='pri' data-share='mine'>Partager ma feuille</button>"+
-      (state.guests.length
-        ? "<button data-share='all'>Tout rediffuser</button>"
-        : "")+
-      "<button data-share='in'>Recevoir</button></div></div>";
-    w.innerHTML = h;
-  }
-
-  document.getElementById("share-wrap").addEventListener("click", function(e){
-    var g = e.target.closest("[data-guest]");
-    if(g){ openGuest(+g.getAttribute("data-guest")); return; }
-    var s = e.target.closest("[data-share]");
-    if(s) openShare(s.getAttribute("data-share"));
-  });
-
-  /* ---- feuille d'un joueur reçu, en lecture seule ---- */
-  var curGuest = -1;
-  function openGuest(i){
-    var g = state.guests[i]; if(!g) return;
-    curGuest = i;
-    var p = guestAsPlayer(g);
-    document.getElementById("gu-title").textContent = g.n;
-    document.getElementById("gu-sub").textContent = "Feuille reçue " + ago(g.at);
-
-    var reste = CATS.filter(function(c){ return p.s[c.id] === undefined; }).length;
-    var rows = CATS.map(function(c){
-      var v = p.s[c.id];
-      return "<tr><td>"+c.label+"</td><td>"+(v === undefined ? "–" : (v === 0 ? "✕" : v))+"</td></tr>";
-    }).join("");
-    document.getElementById("gu-body").innerHTML =
-      "<table>"+rows+
-      "<tr><td>Bonus des 63</td><td>"+(bonusUp(p) ? "+35" : "—")+"</td></tr>"+
-      (p.bonusYams ? "<tr><td>Bonus Yam's</td><td>+"+(p.bonusYams*100)+"</td></tr>" : "")+
-      "<tr class='tot'><td>Total"+(reste ? " (en cours)" : "")+"</td><td>"+grand(p)+"</td></tr>"+
-      "</table>"+
-      (reste ? "<p class='foot' style='margin-top:12px'>"+reste+" case"+(reste>1?"s":"")+
-               " encore à remplir chez "+esc(g.n)+".</p>" : "");
-    open(document.getElementById("modal-guest"));
-  }
-
-  document.getElementById("gu-del").addEventListener("click", function(){
-    if(curGuest < 0) return;
-    state.guests.splice(curGuest, 1);
-    curGuest = -1; close(); save(); render();
-  });
-
-  /* ---- envoyer / recevoir ---- */
-  function shareURL(all){
-    return location.href.split("#")[0] + "#y=" + encodeURIComponent(buildPayload(all));
-  }
-
-  function openShare(kind){
-    var body = document.getElementById("sh-body");
-    if(kind === "in"){
-      document.getElementById("sh-title").textContent = "Recevoir une feuille";
-      document.getElementById("sh-sub").textContent = "Collez le code reçu, ou ouvrez le lien partagé";
-      body.innerHTML = "<textarea class='code-box' id='sh-in' placeholder='Collez ici le code ou le lien…' "+
-                       "autocapitalize='off' autocomplete='off' spellcheck='false'></textarea>"+
-                       "<button class='btn apply' id='sh-do'>Ajouter cette feuille</button>"+
-                       "<p class='foot' style='margin-top:10px;text-align:left'>Un lien partagé peut aussi "+
-                       "être simplement ouvert : la feuille s'ajoute toute seule.</p>";
-    } else {
-      var all = kind === "all";
-      document.getElementById("sh-title").textContent = all ? "Rediffuser toute la table" : "Partager ma feuille";
-      document.getElementById("sh-sub").textContent = all
-        ? "Toutes les feuilles connues de ce téléphone"
-        : "Votre feuille telle qu'elle est maintenant";
-      body.innerHTML =
-        "<div class='board-b' style='margin-top:0'>"+
-          "<button class='pri' data-send='link'>Envoyer le lien</button>"+
-          "<button data-send='copy'>Copier le code</button>"+
-        "</div>"+
-        "<p class='foot' style='margin:12px 0 6px;text-align:left'>Le destinataire ouvre le lien, "+
-        "ou colle ce code dans « Recevoir ».</p>"+
-        "<textarea class='code-box' id='sh-out' readonly>"+esc(buildPayload(all))+"</textarea>";
-      body.setAttribute("data-all", all ? "1" : "0");
-    }
-    open(document.getElementById("modal-share"));
-  }
-
-  document.getElementById("sh-body").addEventListener("click", function(e){
-    var send = e.target.closest("[data-send]");
-    if(send){
-      var all = this.getAttribute("data-all") === "1";
-      var mode = send.getAttribute("data-send");
-      if(mode === "link" && navigator.share){
-        navigator.share({ title:"Ma feuille de Yam's", url:shareURL(all) }).catch(function(){});
+  function subscribe(){
+    if(!OL) return;
+    if(OL.es){ try{ OL.es.close(); }catch(e){} }
+    var es = new EventSource(FB_DB+"/games/"+OL.gid+".json?auth="+encodeURIComponent(OL.token));
+    OL.es = es;
+    function onEvt(ev){
+      var msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+      setConn(true);
+      if(msg && msg.path === "/"){
+        if(msg.data === null){ gameGone(); return; }
+        applyData(msg.data);
       } else {
-        var txt = mode === "link" ? shareURL(all) : buildPayload(all);
-        var ta = document.getElementById("sh-out");
-        if(navigator.clipboard && navigator.clipboard.writeText){
-          navigator.clipboard.writeText(txt).then(function(){ send.textContent = "Copié !"; })
-            .catch(function(){ ta.select(); });
-        } else { ta.value = txt; ta.select(); }
+        dbGet("games/"+OL.gid).then(function(r){
+          if(r.status===200 && r.body) applyData(r.body);
+          else if(r.body===null) gameGone();
+        });
       }
+    }
+    es.addEventListener("put", onEvt);
+    es.addEventListener("patch", onEvt);
+    es.addEventListener("open", function(){ setConn(true); });
+    es.onerror = function(){ setConn(false); };  /* EventSource retente seul ; le rafraîchissement du jeton rouvre proprement */
+  }
+
+  function scheduleRefresh(){
+    if(!OL) return;
+    clearTimeout(OL.rt);
+    OL.rt = setTimeout(function(){
+      if(!OL) return;
+      fbRefresh(OL.refresh).then(function(a){
+        OL.token=a.token; OL.refresh=a.refresh; OL.tat=a.at; persistSession();
+        subscribe(); scheduleRefresh();
+      }).catch(function(){ OL && (OL.rt = setTimeout(scheduleRefresh, 60000)); });
+    }, 50*60*1000);
+  }
+
+  function gameGone(){
+    alert("La partie en ligne a été fermée par l'organisateur.");
+    leaveGame();
+  }
+
+  function teardown(){
+    if(OL){ if(OL.es){ try{ OL.es.close(); }catch(e){} } clearTimeout(OL.rt); }
+    OL = null;
+    try{ localStorage.removeItem(OLKEY); }catch(e){}
+  }
+
+  function leaveGame(){
+    /* l'organisateur ferme la partie pour tout le monde ; un invité s'en va seul */
+    if(OL && amHost() && OL.data){ try{ dbDel("games/"+OL.gid); }catch(e){} }
+    teardown();
+    state = load() || { players:[ mk("Joueur 1"), mk("Joueur 2") ] };
+    state.archived = false;
+    close();
+    render();
+  }
+  function promptLeave(){
+    var msg = amHost()
+      ? "Vous êtes l'organisateur : quitter fermera la partie pour tous les joueurs. Continuer ?"
+      : "Quitter la partie en ligne ?";
+    if(confirm(msg)) leaveGame();
+  }
+
+  /* ---------- Créer ---------- */
+  function createGame(){
+    var name = (state.players[0] && (state.players[0].name||"").trim()) || "Moi";
+    busy("Création de la partie…");
+    fbSignIn().then(function(a){
+      var gid = newGid(), pid = "p"+a.uid.slice(0,12);
+      OL = { gid:gid, uid:a.uid, token:a.token, refresh:a.refresh, tat:a.at,
+             myPid:pid, host:a.uid, data:null, es:null, connected:false,
+             archived: false };
+      var game = { host:a.uid, createdAt:Date.now(), expireAt:Date.now()+30*86400000,
+                   status:"playing", players:{} };
+      game.players[pid] = { name:name, uid:a.uid, order:0 };
+      return dbPut("games/"+gid, game).then(function(res){
+        if(!res.ok) throw new Error("write");
+        persistSession(); applyData(game);
+        subscribe(); scheduleRefresh();
+        unbusy(); close(); renderOnlineModal(); open(mOnline);
+      });
+    }).catch(function(){ teardown(); unbusy(); alert("Impossible de créer la partie. Vérifiez votre connexion."); render(); });
+  }
+
+  /* ---------- Rejoindre ---------- */
+  function askJoin(gid){
+    document.getElementById("gj-code").textContent = gid;
+    var inp = document.getElementById("gj-name");
+    inp.value = (knownNames()[0] || "");
+    mJoin.setAttribute("data-gid", gid);
+    open(mJoin);
+    setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 350);
+  }
+
+  function joinGame(gid, name){
+    busy("Connexion à la partie…");
+    fbSignIn().then(function(a){
+      OL = { gid:gid, uid:a.uid, token:a.token, refresh:a.refresh, tat:a.at,
+             myPid:null, host:null, data:null, es:null, connected:false,
+             archived: localStorage.getItem(OLKEY_ARCH+gid)==="1" };
+      return dbGet("games/"+gid).then(function(r){
+        if(r.status===401) throw new Error("perm");
+        if(r.body===null || r.status===404) throw new Error("gone");
+        var data = r.body; OL.host = data.host;
+        var ps = data.players || {}, mine=null;
+        Object.keys(ps).forEach(function(k){ if(ps[k].uid===a.uid) mine=k; });
+        if(mine){ OL.myPid=mine; applyData(data); return afterJoin(); }
+        var pid = "p"+a.uid.slice(0,12), order = Object.keys(ps).length;
+        OL.myPid = pid;
+        return dbPut("games/"+gid+"/players/"+pid, { name:(name||"Moi").trim()||"Moi", uid:a.uid, order:order })
+          .then(function(res){ if(!res.ok) throw new Error("join");
+            return dbGet("games/"+gid); })
+          .then(function(r2){ applyData(r2.body); afterJoin(); });
+      });
+    }).catch(function(e){
+      teardown(); unbusy();
+      alert(e && e.message==="gone" ? "Cette partie n'existe plus." :
+            e && e.message==="perm" ? "Accès refusé à cette partie." :
+            "Connexion impossible. Vérifiez le réseau.");
+      render();
+    });
+  }
+  function afterJoin(){ persistSession(); subscribe(); scheduleRefresh(); unbusy(); close(); }
+
+  /* ---------- Écritures ---------- */
+  function pushValue(p, cat, v){
+    if(!OL) return;
+    var base = "games/"+OL.gid+"/players/"+p.id;
+    if(cat === "__yb"){ (v===null||v===0) ? dbDel(base+"/yb") : dbPut(base+"/yb", v); }
+    else { (v===null) ? dbDel(base+"/s/"+cat) : dbPut(base+"/s/"+cat, v); }
+  }
+  function pushName(p){ if(OL) dbPut("games/"+OL.gid+"/players/"+p.id+"/name", (p.name||"").trim()||"?"); }
+
+  function addNoPhone(){
+    if(!amHost()) return;
+    var pid = "np"+Math.random().toString(36).slice(2,8);
+    dbPut("games/"+OL.gid+"/players/"+pid, { name:"Joueur "+(state.players.length+1), order:state.players.length });
+  }
+  function removeOnline(pid){
+    if(!amHost() || pid===OL.myPid) return;
+    if(confirm("Retirer ce joueur de la partie ?")) dbDel("games/"+OL.gid+"/players/"+pid);
+  }
+
+  /* ---------- Bandeau de statut sous la feuille ---------- */
+  function renderOnline(){
+    var w = document.getElementById("online-wrap");
+    if(!OL){ w.innerHTML=""; return; }
+    var n = state.players.length;
+    w.innerHTML = "<div class='onl-bar'>"+
+      "<span class='onl-dot "+(OL.connected===false?"off":"on")+"'></span>"+
+      "<span class='onl-info'>En ligne · <b>"+OL.gid+"</b> · "+n+" joueur"+(n>1?"s":"")+
+        (OL.connected===false?" · reconnexion…":"")+"</span>"+
+      "<button class='onl-b' data-onl='qr'>QR</button>"+
+      "<button class='onl-b' data-onl='leave'>Quitter</button></div>";
+  }
+  document.getElementById("online-wrap").addEventListener("click", function(e){
+    var b = e.target.closest("[data-onl]"); if(!b) return;
+    var a = b.getAttribute("data-onl");
+    if(a==="qr"){ renderOnlineModal(); open(mOnline); }
+    else if(a==="leave"){ promptLeave(); }
+  });
+
+  /* ---------- Panneau en ligne (QR + roster) ---------- */
+  function renderOnlineModal(){
+    if(!OL) return;
+    var url = joinURL();
+    var roster = state.players.map(function(p){
+      var tag = isMe(p) ? "moi" : (!p.uid ? "sans téléphone" : "");
+      var rm = (amHost() && !isMe(p)) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
+      return "<div class='onl-p'><span class='onl-pn'>"+esc(p.name)+
+        (tag?"<span class='onl-ptag'>"+tag+"</span>":"")+"</span>"+
+        "<span class='onl-pt'>"+grand(p)+"</span>"+rm+"</div>";
+    }).join("");
+    document.getElementById("onl-body").innerHTML =
+      "<div class='onl-code'>Code&nbsp;: <b>"+OL.gid+"</b></div>"+
+      "<div class='onl-qr'>"+qrSVG(url)+"</div>"+
+      "<p class='onl-hint'>Les autres joueurs scannent ce code avec l'appareil photo de leur téléphone pour rejoindre.</p>"+
+      "<div class='onl-share'>"+
+        (navigator.share ? "<button class='btn onl-go' data-onl='share'>Envoyer le lien</button>" : "")+
+        "<button class='btn onl-alt' data-onl='copy'>Copier le lien</button></div>"+
+      "<div class='onl-roster'><div class='onl-rt'>Joueurs ("+state.players.length+")</div>"+roster+
+        (amHost()?"<button class='onl-add' data-onl='addnp'>＋ Joueur sans téléphone</button>":"")+
+      "</div>"+
+      "<textarea class='code-box' id='onl-url' readonly>"+esc(url)+"</textarea>";
+  }
+  document.getElementById("onl-body").addEventListener("click", function(e){
+    var rm = e.target.closest("[data-rmpid]");
+    if(rm){ removeOnline(rm.getAttribute("data-rmpid")); return; }
+    var b = e.target.closest("[data-onl]"); if(!b) return;
+    var a = b.getAttribute("data-onl");
+    if(a==="addnp") addNoPhone();
+    else if(a==="share" && navigator.share){ navigator.share({ title:"Partie de Yam's", url:joinURL() }).catch(function(){}); }
+    else if(a==="copy"){
+      var ta = document.getElementById("onl-url");
+      if(navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(joinURL()).then(function(){ b.textContent="Copié !"; }).catch(function(){ ta.select(); });
+      else { ta.select(); }
+    }
+  });
+
+  /* bouton « Créer » depuis le panneau en ligne s'il est ouvert hors ligne — non utilisé ici */
+
+  /* validation du nom pour rejoindre */
+  document.getElementById("gj-go").addEventListener("click", function(){
+    var gid = mJoin.getAttribute("data-gid");
+    var name = document.getElementById("gj-name").value;
+    close();
+    joinGame(gid, name);
+  });
+  document.getElementById("gj-name").addEventListener("keydown", function(e){
+    if(e.key === "Enter") document.getElementById("gj-go").click();
+  });
+  document.getElementById("onl-leave").addEventListener("click", promptLeave);
+
+  /* ---------- Démarrage ---------- */
+  render();
+
+  (function boot(){
+    var m = location.hash.match(/^#j=/) ? location.hash.slice(3).match(GID_RE) : null;
+    if(m){
+      try{ history.replaceState(null,"",location.href.split("#")[0]); }catch(e){}
+      askJoin(m[0].toUpperCase());
       return;
     }
-    if(!e.target.closest("#sh-do")) return;
-    var list = readPayload(document.getElementById("sh-in").value);
-    if(!list){ alert("Code non reconnu. Collez le code complet, ou le lien reçu."); return; }
-    var r = mergeSheets(list);
-    close();
-    alert(!r.add && !r.upd ? "Cette feuille est déjà la vôtre : rien à ajouter."
-          : (r.add ? r.add+" feuille"+(r.add>1?"s":"")+" ajoutée"+(r.add>1?"s":"") : "")+
-            (r.add && r.upd ? ", " : "")+
-            (r.upd ? r.upd+" mise"+(r.upd>1?"s":"")+" à jour" : "")+".");
-  });
-
-  /* ---- lien ouvert depuis un partage ---- */
-  (function importFromURL(){
-    if(location.hash.indexOf("#y=") !== 0) return;
-    var list = readPayload(location.hash);
-    try{ history.replaceState(null, "", location.href.split("#")[0]); }catch(e){}
-    if(!list) return;
-    var r = mergeSheets(list);
-    if(r.add || r.upd){
-      setTimeout(function(){
-        alert((r.add + r.upd) + " feuille"+((r.add+r.upd)>1?"s":"")+" reçue"+
-              ((r.add+r.upd)>1?"s":"")+" et ajoutée"+((r.add+r.upd)>1?"s":"")+
-              " au tableau des scores.");
-      }, 300);
+    /* reprise d'une session en ligne après fermeture/rechargement */
+    var s; try{ s = JSON.parse(localStorage.getItem(OLKEY)); }catch(e){}
+    if(s && s.gid && s.refresh){
+      busy("Reconnexion à la partie…");
+      fbRefresh(s.refresh).then(function(a){
+        OL = { gid:s.gid, uid:a.uid, token:a.token, refresh:a.refresh, tat:a.at,
+               myPid:s.pid, host:null, data:null, es:null, connected:false,
+               archived: localStorage.getItem(OLKEY_ARCH+s.gid)==="1" };
+        return dbGet("games/"+s.gid).then(function(r){
+          if(r.body===null || r.status===404) throw new Error("gone");
+          OL.host = r.body.host;
+          var ps = r.body.players || {};
+          if(!ps[OL.myPid]) Object.keys(ps).forEach(function(k){ if(ps[k].uid===a.uid) OL.myPid=k; });
+          applyData(r.body); persistSession(); subscribe(); scheduleRefresh(); unbusy();
+        });
+      }).catch(function(){ teardown(); unbusy(); render(); });
     }
   })();
-
-  render();
 })();
 </script>
 </body>

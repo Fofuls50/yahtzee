@@ -9,9 +9,50 @@ Un seul fichier `index.html`, aucune dépendance, aucun serveur : tout tourne da
   exemple illustré en touchant le **nom**
 - **Assistant de jeu** : quels dés garder, quelle case viser, espérance de points
 - **Historique et statistiques** : victoires, taux de réussite, moyennes, records
+- **Partie en ligne** : chacun sur son téléphone, scores en direct, on rejoint en scannant un QR code
 - Sauvegarde automatique sur l'appareil (la partie survit à la fermeture de l'onglet)
 - Thème clair / sombre selon les réglages du téléphone
 - Compatible Safari iOS et Chrome Android
+
+## Jouer en ligne, chacun sur son téléphone
+
+Deux façons de jouer :
+
+- **En local** (par défaut) : un seul téléphone tient la feuille de toute la table. Rien
+  n'est envoyé sur Internet, aucun compte, fonctionne hors connexion.
+- **En ligne** : chaque joueur a sa feuille sur son propre téléphone et voit les scores
+  des autres se remplir en direct.
+
+Pour lancer une partie en ligne : **Joueurs** (icône silhouettes) → **Créer une partie en
+ligne**. Un QR code s'affiche ; les autres le scannent avec l'appareil photo de leur
+téléphone et sont amenés directement sur la partie. Ils saisissent leur nom et jouent —
+**aucun compte n'est nécessaire**.
+
+- Chacun ne modifie que **sa** colonne ; l'organisateur peut corriger n'importe qui.
+- L'organisateur peut ajouter un **joueur sans téléphone** (un enfant par exemple) et tenir
+  sa colonne.
+- Un bandeau sous la feuille indique l'état de la connexion, le code de la partie et le
+  nombre de joueurs. Le bouton **QR** le ré-affiche à tout moment.
+- La partie survit à une coupure réseau ou à la fermeture de l'onglet : à la réouverture,
+  le téléphone se reconnecte tout seul.
+- Quand tous ont terminé, chacun peut **Enregistrer** la partie dans son propre historique
+  (avec les scores de tout le monde). L'organisateur qui **Quitte** ferme la partie pour tous.
+
+### Ce que ça implique
+
+Le jeu en ligne s'appuie sur **Firebase** (Google) : prénoms et scores de la partie
+transitent par ce service, en Belgique, et sont effacés au bout de 30 jours. Le **mode local
+reste inchangé** — hors ligne, sans compte, rien qui sorte de l'appareil.
+
+La configuration Firebase (gratuite, déjà réalisée) est décrite dans
+[SETUP-FIREBASE.md](SETUP-FIREBASE.md). Le site reste un fichier `index.html` unique hébergé
+sur GitHub Pages : Firebase est seulement appelé depuis le navigateur, aucune bibliothèque
+externe n'est chargée. Le QR code est généré par un encodeur maison (versions 1-5, niveau L),
+validé par un décodeur indépendant.
+
+> Étape indispensable une fois le site en ligne : autoriser le domaine `fofuls50.github.io`
+> dans **Firebase → Authentication → Settings → Domaines autorisés**, sinon la connexion
+> échouera sur le site publié.
 
 ## L'assistant de jeu
 
