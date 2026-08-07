@@ -3,12 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b1211" media="(prefers-color-scheme: dark)">
+<meta id="meta-theme" name="theme-color" content="#0f766e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Yam's">
 <meta name="description" content="Feuille de score pour le Yam's / Yahtzee">
+<script>
+  /* Applique le thème choisi (clair/sombre/système) avant le rendu, sans clignotement. */
+  (function(){
+    try{
+      var t = localStorage.getItem("yams.theme.v1");
+      if(t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    }catch(e){}
+  })();
+</script>
 <title>Yam's — Feuille de score</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Cg fill='%23fff'%3E%3Ccircle cx='10' cy='10' r='2.6'/%3E%3Ccircle cx='22' cy='10' r='2.6'/%3E%3Ccircle cx='16' cy='16' r='2.6'/%3E%3Ccircle cx='10' cy='22' r='2.6'/%3E%3Ccircle cx='22' cy='22' r='2.6'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,8 +38,10 @@
     --shadow:0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
     --shadow-lg:0 20px 30px -10px rgba(15, 23, 42, 0.12), 0 10px 15px -5px rgba(15, 23, 42, 0.04);
   }
+  /* Variables du mode sombre. Appliquées si le système est sombre (sauf choix
+     manuel « clair »), OU si le thème est explicitement forcé sur « sombre ». */
   @media (prefers-color-scheme: dark){
-    :root{
+    :root:not([data-theme="light"]){
       --paper:#090d16;
       --card:#131b2e;
       --ink:#f8fafc;
@@ -46,6 +56,21 @@
       --shadow:0 8px 30px -6px rgba(0,0,0,.45);
       --shadow-lg:0 20px 40px -12px rgba(0,0,0,.7);
     }
+  }
+  :root[data-theme="dark"]{
+    --paper:#090d16;
+    --card:#131b2e;
+    --ink:#f8fafc;
+    --muted:#94a3b8;
+    --line:#1e293b;
+    --line-strong:#334155;
+    --accent:#14b8a6;
+    --accent-soft:#134e4a;
+    --accent-ink:#5eead4;
+    --gold:#f59e0b;
+    --gold-soft:#78350f;
+    --shadow:0 8px 30px -6px rgba(0,0,0,.45);
+    --shadow-lg:0 20px 40px -12px rgba(0,0,0,.7);
   }
 
   *,*::before,*::after{box-sizing:border-box}
@@ -237,7 +262,8 @@
   .btn.ghost{background:var(--paper);border:1px solid var(--line);color:var(--muted)}
   .btn.ghost:hover{color:var(--ink);border-color:var(--line-strong)}
   .btn.danger{background:var(--paper);border:1px solid var(--line);color:#e11d48}
-  @media (prefers-color-scheme: dark){.btn.danger{color:#fb7185}}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.danger{color:#fb7185}}
+  :root[data-theme="dark"] .btn.danger{color:#fb7185}
 
   /* ---------- Partie en ligne ---------- */
   .mecol{background:color-mix(in srgb,var(--accent-soft) 50%,transparent)!important}
@@ -357,6 +383,7 @@
   .done.saved{background:var(--accent-soft);color:var(--accent-ink)}
 
   /* ---------- Réglages ---------- */
+  .set-theme{padding-bottom:4px}
   .set{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-top:1px solid var(--line)}
   .set:first-child{border-top:0;padding-top:2px}
   .set-b{flex:1;min-width:0}
@@ -1748,7 +1775,33 @@
 
   /* ================= RÉGLAGES ================= */
 
+  /* ---------------- thème clair / sombre ---------------- */
+  var THEMEKEY = "yams.theme.v1";
+  function themePref(){ try{ return localStorage.getItem(THEMEKEY) || "system"; }catch(e){ return "system"; } }
+  function applyTheme(t){
+    try{
+      if(t === "light" || t === "dark") localStorage.setItem(THEMEKEY, t);
+      else localStorage.removeItem(THEMEKEY);
+    }catch(e){}
+    if(t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    syncThemeColor();
+  }
+  /* la barre du navigateur (mobile) suit le thème réellement affiché */
+  function syncThemeColor(){
+    var forced = document.documentElement.getAttribute("data-theme");
+    var dark = forced === "dark" || (!forced && window.matchMedia &&
+               window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var m = document.getElementById("meta-theme");
+    if(m) m.setAttribute("content", dark ? "#0b1211" : "#0f766e");
+  }
+  syncThemeColor();
+  if(window.matchMedia){
+    try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeColor); }catch(e){}
+  }
+
   function renderSettings(){
+    var tp = themePref();
     var pref = persistPref(), dispo = persistState !== "indisponible";
     var vouluActif = pref === "on", ask = lastAsk();
     var statut, classe = "";
@@ -1785,6 +1838,14 @@
     }
 
     document.getElementById("set-body").innerHTML =
+      "<div class='set-theme'>"+
+        "<div class='set-n'>Apparence</div>"+
+        "<div class='seg' style='margin-top:8px'>"+
+          "<button data-theme-set='system'"+(tp==="system"?" class='on'":"")+">Système</button>"+
+          "<button data-theme-set='light'"+(tp==="light"?" class='on'":"")+">Clair</button>"+
+          "<button data-theme-set='dark'"+(tp==="dark"?" class='on'":"")+">Sombre</button>"+
+        "</div>"+
+      "</div>"+
       "<div class='set'><div class='set-b'>"+
         "<div class='set-n'>Conserver l'historique des parties</div>"+
         "<div class='set-d'>Chaque partie terminée est enregistrée sur cet appareil : c'est "+
@@ -1805,6 +1866,8 @@
   }
 
   document.getElementById("set-body").addEventListener("click", function(e){
+    var tb = e.target.closest("[data-theme-set]");
+    if(tb){ applyTheme(tb.getAttribute("data-theme-set")); renderSettings(); return; }
     if(!e.target.closest("#sw-persist")) return;
     if(persistState === "indisponible" || !(navigator.storage && navigator.storage.persist)) return;
 
