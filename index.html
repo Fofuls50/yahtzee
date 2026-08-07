@@ -281,6 +281,8 @@
   }
   .cell.locked{color:var(--muted);cursor:default;opacity:.7}
   .cell.locked.empty{color:var(--line-strong)}
+  .cell.seqlock{color:var(--line-strong);font-size:13px;opacity:.65}
+  .cell.seqlock:hover{background:none;color:var(--line-strong);cursor:pointer}
 
   /* bandeau de statut sous la feuille */
   .onl-bar{
@@ -962,6 +964,21 @@
     if(val) c[cat] = true; else delete c[cat];
   }
 
+  /* ---- ordre imposé (colonnes Descendante / Montante) ----
+     Descendante : As → … → Chance, dans l'ordre d'affichage de la grille.
+     Montante : le même ordre, mais à l'envers (Chance → … → As).
+     « Libre » et « Imposé » n'ont aucune contrainte de séquence. */
+  var CAT_SEQ = CATS.map(function(c){ return c.id; });
+  function colType(colId){ var c = columns().filter(function(x){ return x.id===colId; })[0]; return c ? c.type : "free"; }
+  /* prochaine case à remplir dans cette colonne pour ce joueur ; null = pas de contrainte ou colonne complète */
+  function nextSeqCat(p, colId){
+    var t = colType(colId);
+    if(t !== "desc" && t !== "mont") return null;
+    var order = t === "desc" ? CAT_SEQ : CAT_SEQ.slice().reverse();
+    for(var i=0;i<order.length;i++) if(colVal(p, colId, order[i]) === undefined) return order[i];
+    return null;
+  }
+
   /* Détecte si une map est déjà « imbriquée par colonne » (valeurs = objets).
      Retourne true (imbriquée), false (plate), null (vide → on ne sait pas). */
   function nestedMap(o){ for(var k in o){ return typeof o[k] === "object" && o[k] !== null; } return null; }
@@ -1201,13 +1218,16 @@
 
   function row(c, pl, addable){
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
+    var admin = adminMode && canAdmin();
     pl.forEach(function(p,i){
       columns().forEach(function(col){
         var v = colVal(p, col.id, c.id), ed = canEdit(p);
         var filled = !(v===undefined||v===null);
+        var seqNext = (!admin && ed) ? nextSeqCat(p, col.id) : null;  /* prochaine case autorisée (Desc/Mont) */
+        var seqLocked = !filled && seqNext && seqNext !== c.id;
         var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
-                  (isMe(p)?" mecol":"")+(ed?"":" locked");
-        var txt = !filled ? "–" : (v===0 ? "✕" : v);
+                  (isMe(p)?" mecol":"")+(ed?"":" locked")+(seqLocked?" seqlock":"");
+        var txt = seqLocked ? "🔒" : (!filled ? "–" : (v===0 ? "✕" : v));
         var star = (filled && colCorr(p, col.id, c.id)) ? "<span class='corr'>✱</span>" : "";
         h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
       });
@@ -1281,6 +1301,16 @@
       }
       if(colVal(p, col, catId) !== undefined){
         toast("Case déjà remplie — l'organisateur peut la corriger.");
+        return;
+      }
+    }
+    /* ordre imposé (Descendante/Montante) : hors admin, seule la prochaine case vide de la
+       séquence s'ouvre. Ne s'applique qu'aux nouvelles saisies — on peut toujours rouvrir
+       une case déjà remplie (pour la corriger ou l'effacer). */
+    if(!byAdmin && !isBonus && colVal(p, col, catId) === undefined){
+      var need = nextSeqCat(p, col);
+      if(need && need !== catId){
+        toast("Dans cette colonne, il faut d'abord remplir « " + BYID[need].label + " ».");
         return;
       }
     }
