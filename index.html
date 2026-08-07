@@ -893,7 +893,7 @@
   /* ---------------- état ---------------- */
   var state = load() || { players:[ mk("Joueur 1"), mk("Joueur 2") ] };
 
-  function mk(name){ return { id:"p"+Math.random().toString(36).slice(2,9), name:name, s:{}, bonusYams:0 }; }
+  function mk(name){ return { id:"p"+Math.random().toString(36).slice(2,9), name:name, s:{}, bonusYams:{}, corrected:{} }; }
 
   /* ---------------- règles de la partie ----------------
      Paramètres modifiables (preset classique par défaut). Le scoring et les bonus
@@ -901,17 +901,50 @@
      parties en ligne). */
   function defaultConfig(){
     return { preset:"classic", upperBonus:{ threshold:63, value:35 },
-             yamsBonus:100, frenchScore:false, carreBonus:40, plusMinus:false };
+             yamsBonus:100, frenchScore:false, carreBonus:40, plusMinus:false,
+             columns:[ { id:"libre", type:"free", label:"Libre", short:"↕" } ] };
   }
   function migrateConfig(s){
     var d = defaultConfig();
     s.config = s.config || {};
     for(var k in d) if(s.config[k] === undefined) s.config[k] = d[k];
     if(!s.config.upperBonus) s.config.upperBonus = d.upperBonus;
+    if(!(s.config.columns && s.config.columns.length)) s.config.columns = d.columns;
     return s;
   }
   function cfg(){ return state.config || (state.config = defaultConfig()); }
   migrateConfig(state);
+
+  /* ---------------- colonnes ----------------
+     Chaque joueur a un jeu de scores PAR colonne : p.s[colId][catId].
+     Par défaut une seule colonne « Libre » → comportement identique à avant. */
+  function columns(){ var c = cfg().columns; return (c && c.length) ? c : defaultConfig().columns; }
+  function mainCol(){ return columns()[0].id; }
+  function colVal(p, col, cat){ var s = p.s && p.s[col]; return s ? s[cat] : undefined; }
+  function setColVal(p, col, cat, v){ (p.s[col] || (p.s[col] = {}))[cat] = v; }
+  function delColVal(p, col, cat){ if(p.s[col]) delete p.s[col][cat]; }
+  function colBonus(p, col){ return (p.bonusYams && p.bonusYams[col]) || 0; }
+  function setColBonus(p, col, v){ p.bonusYams[col] = v; }
+  function colCorr(p, col, cat){ return !!(p.corrected && p.corrected[col] && p.corrected[col][cat]); }
+  function setColCorr(p, col, cat, val){
+    var c = p.corrected[col] || (p.corrected[col] = {});
+    if(val) c[cat] = true; else delete c[cat];
+  }
+
+  /* Détecte si une map est déjà « imbriquée par colonne » (valeurs = objets).
+     Retourne true (imbriquée), false (plate), null (vide → on ne sait pas). */
+  function nestedMap(o){ for(var k in o){ return typeof o[k] === "object" && o[k] !== null; } return null; }
+  /* Convertit un joueur de l'ancien format plat vers le format par colonne. */
+  function normPlayer(p){
+    if(!p.s || typeof p.s !== "object") p.s = {};
+    if(nestedMap(p.s) === false) p.s = { libre: p.s };
+    if(typeof p.bonusYams === "number") p.bonusYams = p.bonusYams ? { libre: p.bonusYams } : {};
+    if(!p.bonusYams || typeof p.bonusYams !== "object") p.bonusYams = {};
+    if(!p.corrected || typeof p.corrected !== "object") p.corrected = {};
+    if(nestedMap(p.corrected) === false) p.corrected = { libre: p.corrected };
+    return p;
+  }
+  if(state.players) state.players.forEach(normPlayer);
 
   /* ---------------- tour de jeu ----------------
      order = ids des joueurs dans l'ordre où ils ont joué leur 1er tour (fixe l'ordre) ;
@@ -979,13 +1012,19 @@
   }
 
   /* ---------------- calculs ---------------- */
-  function sumUp(p){ return UP.reduce(function(t,c){ return t + (p.s[c.id]||0); },0); }
-  function bonusUp(p){ var b = cfg().upperBonus; return sumUp(p) >= b.threshold ? b.value : 0; }
-  function totalUp(p){ return sumUp(p) + bonusUp(p); }
-  function totalLow(p){
-    return LOW.reduce(function(t,c){ return t + (p.s[c.id]||0); },0) + (p.bonusYams||0)*cfg().yamsBonus;
+  function sumUpCol(p, col){ return UP.reduce(function(t,c){ return t + (colVal(p,col,c.id)||0); },0); }
+  function bonusUpCol(p, col){ var b = cfg().upperBonus; return sumUpCol(p,col) >= b.threshold ? b.value : 0; }
+  function totalUpCol(p, col){ return sumUpCol(p,col) + bonusUpCol(p,col); }
+  function totalLowCol(p, col){
+    return LOW.reduce(function(t,c){ return t + (colVal(p,col,c.id)||0); },0) + colBonus(p,col)*cfg().yamsBonus;
   }
-  function grand(p){ return totalUp(p) + totalLow(p); }
+  function grandCol(p, col){ return totalUpCol(p,col) + totalLowCol(p,col); }
+  /* raccourcis « colonne principale » (compat mono-colonne) ; total joueur = somme des colonnes */
+  function sumUp(p){ return sumUpCol(p, mainCol()); }
+  function bonusUp(p){ return bonusUpCol(p, mainCol()); }
+  function totalUp(p){ return totalUpCol(p, mainCol()); }
+  function totalLow(p){ return totalLowCol(p, mainCol()); }
+  function grand(p){ return columns().reduce(function(t,col){ return t + grandCol(p, col.id); }, 0); }
 
   /* ---------------- rendu ---------------- */
   var grid = document.getElementById("grid");
@@ -1035,11 +1074,11 @@
     h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section basse</th></tr>";
     LOW.forEach(function(c){ h += row(c, pl, addable); });
 
-    var yb = cfg().yamsBonus;
+    var yb = cfg().yamsBonus, ybCol = mainCol();
     h += "<tr><th data-info='__yb'>"+
          catLabel({ label:"Bonus Yam's", sub:"+"+yb+" par Yam's en plus" })+"</th>";
     pl.forEach(function(p,i){
-      var v = p.bonusYams||0, ed = canEdit(p);
+      var v = colBonus(p, ybCol), ed = canEdit(p);
       var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
       h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='__yb'>"+
            (v? "+"+(v*yb) : "–")+"</button></td>";
@@ -1100,13 +1139,14 @@
 
   function row(c, pl, addable){
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
+    var col = mainCol();
     pl.forEach(function(p,i){
-      var v = p.s[c.id], ed = canEdit(p);
+      var v = colVal(p, col, c.id), ed = canEdit(p);
       var filled = !(v===undefined||v===null);
       var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
                 (isMe(p)?" mecol":"")+(ed?"":" locked");
       var txt = !filled ? "–" : (v===0 ? "✕" : v);
-      var star = (filled && p.corrected && p.corrected[c.id]) ? "<span class='corr'>✱</span>" : "";
+      var star = (filled && colCorr(p, col, c.id)) ? "<span class='corr'>✱</span>" : "";
       h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
     });
     if(addable) h += "<td></td>";
@@ -1173,23 +1213,23 @@
         toast(w ? "C'est au tour de " + w.name + " de jouer." : "C'est au tour d'un autre joueur.");
         return;
       }
-      if(p.s[catId] !== undefined){
+      if(colVal(p, mainCol(), catId) !== undefined){
         toast("Case déjà remplie — l'organisateur peut la corriger.");
         return;
       }
     }
-    cur = { pi:pi, cat:catId };
+    cur = { pi:pi, cat:catId, col:mainCol() };
     var title, sub, opts, sel;
 
     if(catId === "__yb"){
       title = "Bonus Yam's";
       sub = p.name + " — Yam's supplémentaires réalisés";
       opts = [0,1,2,3,4].map(function(k){ return { v:k, label: k? "+"+(k*cfg().yamsBonus) : "0" }; });
-      sel = p.bonusYams||0;
+      sel = colBonus(p, cur.col);
     } else {
       var c = BYID[catId];
       title = c.label;
-      sel = p.s[catId];
+      sel = colVal(p, cur.col, catId);
       if(c.sec==="up"){
         sub = p.name + " — combien de dés à " + c.face + " ?";
         opts = [0,1,2,3,4,5].map(function(k){
@@ -1255,20 +1295,19 @@
     var v = parseInt(b.getAttribute("data-val"),10);
     var p = state.players[cur.pi];
     if(OL && !canEdit(p)){ close(); return; }
-    var isBonus = cur.cat === "__yb";
+    var isBonus = cur.cat === "__yb", col = cur.col;
     var byAdmin = adminMode && canAdmin();
-    var wasEmpty = isBonus ? !p.bonusYams : (p.s[cur.cat] === undefined);
+    var wasEmpty = isBonus ? !colBonus(p,col) : (colVal(p,col,cur.cat) === undefined);
     var advanced = false;
-    if(isBonus) p.bonusYams = v; else p.s[cur.cat] = v;
+    if(isBonus) setColBonus(p, col, v); else setColVal(p, col, cur.cat, v);
     if(!isBonus){
-      p.corrected = p.corrected || {};
-      if(byAdmin) p.corrected[cur.cat] = true;                          /* case touchée par l'organisateur */
+      if(byAdmin) setColCorr(p, col, cur.cat, true);                    /* case touchée par l'organisateur */
       else if(wasEmpty && turnLockActive()){ advanceTurn(p); advanced = true; }  /* jeu normal : on passe la main */
     }
     if(OL){
       if(advanced) pushTurn();                                 /* le tour d'abord, pour la cohérence */
-      pushValue(p, cur.cat, v);
-      if(!isBonus && byAdmin) pushCorrected(p, cur.cat, true);
+      pushValue(p, col, cur.cat, v);
+      if(!isBonus && byAdmin) pushCorrected(p, col, cur.cat, true);
     }
     save(); close(); render();
   });
@@ -1277,14 +1316,14 @@
     if(!cur) return;
     var p = state.players[cur.pi];
     if(OL && !canEdit(p)){ close(); return; }
-    var isBonus = cur.cat === "__yb";
+    var isBonus = cur.cat === "__yb", col = cur.col;
     var byAdmin = adminMode && canAdmin();
     if(!isBonus && !byAdmin && turnLockActive()){
       toast("Activez le mode organisateur pour effacer une case."); return;
     }
-    if(isBonus) p.bonusYams = 0;
-    else { delete p.s[cur.cat]; if(p.corrected) delete p.corrected[cur.cat]; }
-    if(OL){ pushValue(p, cur.cat, null); if(!isBonus) pushCorrected(p, cur.cat, false); }
+    if(isBonus) setColBonus(p, col, 0);
+    else { delColVal(p, col, cur.cat); setColCorr(p, col, cur.cat, false); }
+    if(OL){ pushValue(p, col, cur.cat, null); if(!isBonus) pushCorrected(p, col, cur.cat, false); }
     save(); close(); render();
   });
 
@@ -1509,7 +1548,7 @@
 
   /* classement des cases ouvertes pour un tirage */
   function rankCats(dice, p, open, live){
-    var yb = (isYams(dice) && p.s.yams === 50) ? 100 : 0;
+    var yb = (isYams(dice) && colVal(p, mainCol(), "yams") === 50) ? 100 : 0;
     return open.map(function(id){
       var pts = scoreCat(id, dice), c = BYID[id];
       var v = pts - BASE[id] + yb;
@@ -1522,7 +1561,7 @@
 
   /* --- conseil complet pour un tirage --- */
   function advise(p, dice, rollsLeft){
-    var open = CATS.filter(function(c){ return p.s[c.id] === undefined; }).map(function(c){ return c.id; });
+    var open = CATS.filter(function(c){ return colVal(p, mainCol(), c.id) === undefined; }).map(function(c){ return c.id; });
     if(!open.length) return null;
     var live = bonusLive(p, open);
 
@@ -1869,11 +1908,15 @@
     });
   }
 
-  function sheetFull(p){ return CATS.every(function(c){ return p.s[c.id] !== undefined; }); }
+  function sheetFull(p){
+    return columns().every(function(col){ return CATS.every(function(c){ return colVal(p,col.id,c.id) !== undefined; }); });
+  }
   function gameComplete(){ return state.players.length > 0 && state.players.every(sheetFull); }
   function gameStarted(){
     return state.players.some(function(p){
-      return CATS.some(function(c){ return p.s[c.id] !== undefined; }) || p.bonusYams;
+      return columns().some(function(col){
+        return CATS.some(function(c){ return colVal(p,col.id,c.id) !== undefined; }) || colBonus(p,col.id);
+      });
     });
   }
 
@@ -1881,7 +1924,7 @@
   function archive(){
     var rec = { d: Date.now(), p: state.players.map(function(p){
       return { n:(p.name||"?").trim(), t:grand(p), u:sumUp(p), b:bonusUp(p)?1:0,
-               y:p.s.yams||0, yb:p.bonusYams||0 };
+               y:colVal(p,mainCol(),"yams")||0, yb:colBonus(p,mainCol()) };
     })};
     var h = loadHist(); h.push(rec); saveHist(h);
     state.archived = true;
@@ -1891,7 +1934,7 @@
   }
 
   function resetGame(){
-    state.players.forEach(function(p){ p.s = {}; p.bonusYams = 0; p.corrected = {}; });
+    state.players.forEach(function(p){ p.s = {}; p.bonusYams = {}; p.corrected = {}; });
     state.archived = false;
     state.turn = { order:[], pos:0 };
     adminMode = false;
@@ -2347,8 +2390,9 @@
     var ps = OL.data.players || {};
     state.players = Object.keys(ps).map(function(pid){
       var p = ps[pid] || {};
-      return { id:pid, name:(p.name||"?"), uid:p.uid||null, order:(typeof p.order==="number"?p.order:0),
-               s:p.s||{}, bonusYams:p.yb||0, corrected:p.corrected||{} };
+      return normPlayer({ id:pid, name:(p.name||"?"), uid:p.uid||null,
+               order:(typeof p.order==="number"?p.order:0),
+               s:p.s||{}, bonusYams:p.yb||{}, corrected:p.corrected||{} });
     }).sort(function(a,b){ return a.order-b.order || (a.id<b.id?-1:1); });
     /* tour de jeu partagé (Firebase peut renvoyer l'ordre en tableau ou en objet) */
     var t = OL.data.turn, ord = [];
@@ -2414,6 +2458,7 @@
     if(OL && amHost() && OL.data){ try{ dbDel("games/"+OL.gid); }catch(e){} }
     teardown();
     state = load() || { players:[ mk("Joueur 1"), mk("Joueur 2") ] };
+    state.players.forEach(normPlayer);
     state.archived = false;
     adminMode = false;
     close();
@@ -2488,17 +2533,17 @@
   function afterJoin(){ persistSession(); subscribe(); scheduleRefresh(); unbusy(); close(); }
 
   /* ---------- Écritures ---------- */
-  function pushValue(p, cat, v){
+  function pushValue(p, col, cat, v){
     if(!OL) return;
     var base = "games/"+OL.gid+"/players/"+p.id;
-    if(cat === "__yb"){ (v===null||v===0) ? dbDel(base+"/yb") : dbPut(base+"/yb", v); }
-    else { (v===null) ? dbDel(base+"/s/"+cat) : dbPut(base+"/s/"+cat, v); }
+    if(cat === "__yb"){ (v===null||v===0) ? dbDel(base+"/yb/"+col) : dbPut(base+"/yb/"+col, v); }
+    else { (v===null) ? dbDel(base+"/s/"+col+"/"+cat) : dbPut(base+"/s/"+col+"/"+cat, v); }
   }
   function pushName(p){ if(OL) dbPut("games/"+OL.gid+"/players/"+p.id+"/name", (p.name||"").trim()||"?"); }
   function pushTurn(){ if(OL) dbPut("games/"+OL.gid+"/turn", { order:state.turn.order, pos:state.turn.pos }); }
-  function pushCorrected(p, cat, val){
+  function pushCorrected(p, col, cat, val){
     if(!OL) return;
-    var pth = "games/"+OL.gid+"/players/"+p.id+"/corrected/"+cat;
+    var pth = "games/"+OL.gid+"/players/"+p.id+"/corrected/"+col+"/"+cat;
     val ? dbPut(pth, true) : dbDel(pth);
   }
 
