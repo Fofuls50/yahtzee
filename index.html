@@ -487,6 +487,33 @@
 
   .btn.apply{background:var(--accent);color:#fff;margin-top:12px;width:100%;height:48px}
 
+  /* --- assistant : dés à garder / relancer + objectifs --- */
+  .slot{position:relative}
+  .slot.keep{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .slot.reroll{border-style:dashed;border-color:var(--line-strong);color:var(--muted);opacity:.5}
+  .slot .bdg{position:absolute;top:-6px;right:-6px;width:19px;height:19px;border-radius:50%;
+    font-size:11px;font-weight:700;display:grid;place-items:center;color:#fff;line-height:1}
+  .slot.keep .bdg{background:var(--accent)}
+  .slot.reroll .bdg{background:var(--muted)}
+  .keeplg{display:flex;justify-content:center;gap:24px;font-size:11px;font-weight:700;
+    color:var(--muted);margin:0 0 12px}
+  .keeplg .k{color:var(--accent)}
+  .adv-obj-t{font-size:10px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;
+    color:var(--accent-ink);opacity:.6;margin-top:10px}
+  .adv-obj{list-style:none;margin:5px 0 0;padding:0}
+  .adv-obj li{display:flex;align-items:baseline;gap:8px;padding:5px 0;font-size:15px;color:var(--accent-ink)}
+  .adv-obj li+li{border-top:1px solid var(--card)}
+  .adv-obj .o-nm{font-weight:700}
+  .adv-obj .o-pc{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+  .adv-floor{margin-top:11px;padding-top:9px;border-top:1px solid var(--card);
+    font-size:12.5px;color:var(--accent-ink);opacity:.85;line-height:1.55}
+  .adv-more{margin-top:12px}
+  .adv-more>summary{list-style:none;cursor:pointer;font-size:12px;font-weight:700;
+    color:var(--accent);display:inline-flex;align-items:center;gap:5px;padding:4px 0}
+  .adv-more>summary::-webkit-details-marker{display:none}
+  .adv-more>summary::after{content:"▾";font-size:9px}
+  .adv-more[open]>summary::after{content:"▴"}
+
   .chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 4px 6px}
   .chips-t{
     width:100%;font-size:10px;text-transform:uppercase;letter-spacing:.08em;
@@ -1274,6 +1301,55 @@
     return { kind:"keep", opts:opts, now:now, open:open };
   }
 
+  /* ===== « chance d'obtenir la combinaison » pour l'affichage du conseil =====
+     Probabilité de rendre une case inscriptible en gardant la garde conseillée
+     maintenant, puis en rejouant au mieux pour viser précisément cette case.
+     Indépendant du reste : mémorisable une fois pour toutes (fonction pure). */
+  var PWM = {};
+  function gcOf(gk){ var c=[0,0,0,0,0,0,0]; if(gk) for(var i=0;i<gk.length;i++) c[+gk[i]]++; return c; }
+  /* P d'obtenir `target` en CONSERVANT toujours au moins la garde verte `gk`
+     (les dés que l'on conseille de garder), sur `r` relances jouées au mieux.
+     On ne casse jamais la garde verte : le chiffre reste cohérent avec le conseil. */
+  function pHold(handKey, r, target, gk){
+    var mk = handKey + "|" + r + "|" + target + "|" + gk;
+    if(PWM[mk] !== undefined) return PWM[mk];
+    var res, hand = arrOf(handKey);
+    if(scoreCat(target, hand) > 0) res = 1;                 /* combinaison déjà réussie */
+    else if(r <= 0) res = 0;
+    else {
+      var gc = gcOf(gk), best = 0;
+      subsetsOf(hand).forEach(function(s){
+        var sc=[0,0,0,0,0,0,0]; s.forEach(function(v){ sc[v]++; });
+        for(var f=1;f<=6;f++) if(sc[f] < gc[f]) return;     /* garde verte préservée */
+        var d = DIST[keyOf(s)], v = 0;
+        for(var i=0;i<d.length;i++) v += d[i][1] * pHold(d[i][0], r-1, target, gk);
+        if(v > best) best = v;
+      });
+      res = best;
+    }
+    PWM[mk] = res; return res;
+  }
+  /* garde verte figée pour ce tour (on relance les autres), puis on vise `target` */
+  function pComplete(keepArr, rollsLeft, target){
+    if(rollsLeft <= 0) return 0;
+    var gk = keyOf(keepArr), d = DIST[gk], v = 0;
+    for(var i=0;i<d.length;i++) v += d[i][1] * pHold(d[i][0], rollsLeft-1, target, gk);
+    return v;
+  }
+  /* seules ces combinaisons sont des « objectifs à tenter » (réussite oui/non) ;
+     les faces du haut et la Chance apparaissent plutôt comme filet garanti. */
+  var LOWCHASE = { brelan:1, carre:1, full:1, petite:1, grande:1, yams:1 };
+  /* case déjà GARANTIE par la garde (filet de sécurité) + points moyens */
+  function floorInfo(keepArr, cat){
+    var d = DIST[keyOf(keepArr)], guaranteed = true, exp = 0;
+    for(var i=0;i<d.length;i++){
+      var pts = scoreCat(cat, arrOf(d[i][0]));
+      if(pts <= 0) guaranteed = false;
+      exp += d[i][1] * pts;
+    }
+    return { guaranteed: guaranteed, exp: exp };
+  }
+
   /* ================= INTERFACE ASSISTANT ================= */
 
   var mAdv = document.getElementById("modal-adv");
@@ -1298,13 +1374,23 @@
       return "<button data-pi='"+i+"'"+(i===advPi?" class='on'":"")+">"+esc(p.name)+"</button>";
     }).join("");
 
-    document.getElementById("adv-slots").innerHTML = [0,1,2,3,4].map(function(i){
-      var v = advDice[i];
-      return "<div class='slot"+(v?" full":"")+"'>"+(v ? D[v] : "·")+"</div>";
-    }).join("");
-
+    var slotsEl = document.getElementById("adv-slots");
     var out = document.getElementById("adv-out");
+
+    /* dessine les 5 dés ; si `keep` fourni, colore garder (✓) / relancer (↻) */
+    function drawSlots(keep){
+      var kc = {}; if(keep) keep.forEach(function(v){ kc[v] = (kc[v]||0)+1; });
+      slotsEl.innerHTML = [0,1,2,3,4].map(function(i){
+        var v = advDice[i];
+        if(!v) return "<div class='slot'>·</div>";
+        if(!keep) return "<div class='slot full'>"+D[v]+"</div>";
+        if(kc[v] > 0){ kc[v]--; return "<div class='slot keep'>"+D[v]+"<span class='bdg'>✓</span></div>"; }
+        return "<div class='slot reroll'>"+D[v]+"<span class='bdg'>↻</span></div>";
+      }).join("");
+    }
+
     if(advDice.length < 5){
+      drawSlots(null);
       out.innerHTML = "<div class='adv-wait'>Touchez les faces pour saisir vos 5 dés<br>("+
                       advDice.length+"/5)</div>";
       return;
@@ -1312,71 +1398,107 @@
 
     var p = state.players[advPi];
     var a = advise(p, advDice.slice().sort(), advRolls);
-    if(!a){ out.innerHTML = "<div class='adv-wait'>La grille de "+esc(p.name)+" est complète.</div>"; return; }
+    if(!a){ drawSlots(null); out.innerHTML = "<div class='adv-wait'>La grille de "+esc(p.name)+" est complète.</div>"; return; }
 
+    var lead = advRolls===2 ? "Après le 1ᵉʳ jet" : "Après le 2ᵉ jet";
+    function pct(x){ return "≈ "+Math.round(x*100)+" %"; }
+    function floorTxt(f){
+      var c = BYID[f.cat];
+      var val = c.kind === "fixed" ? c.value+" pts" : "≈ "+Math.round(f.exp)+" pts";
+      return "<b>"+c.label+"</b> ("+val+")";
+    }
     var h = "";
+
+    /* ---------- dernier jet : plus de relance, il faut inscrire ---------- */
     if(a.kind === "score"){
+      drawSlots(null);
       var b = a.list[0];
       h += "<div class='adv-card'><div class='adv-lead'>Meilleure case</div>"+
            "<div class='adv-main'>"+BYID[b.cat].label+" · "+b.pts+" pt"+(b.pts>1?"s":"")+"</div>"+
            "<div class='adv-meta'>"+(b.pts===0
              ? "Aucune case ne rapporte : barrez celle qui coûte le moins."
-             : "C'est le meilleur score inscriptible avec ce tirage.")+
+             : "Le meilleur score parmi vos cases encore libres.")+
            (b.yb ? "<br><b>Yam's supplémentaire : pensez au bonus +100 !</b>" : "")+
            "</div></div>";
       h += "<button class='btn apply' id='adv-apply' data-cat='"+b.cat+"' data-pts='"+b.pts+"'>"+
            "Inscrire "+b.pts+" en « "+BYID[b.cat].label+" »</button>";
       if(a.list.length > 1){
-        h += "<div class='alts'><div class='alts-t'>Autres cases possibles</div>"+
-             a.list.slice(1,4).map(function(o){
+        h += "<details class='adv-more'><summary>Voir les autres cases</summary>"+
+             "<div class='alts'>"+
+             a.list.slice(1,5).map(function(o){
                return "<div class='alt'><span class='d' style='font-size:13px'>"+BYID[o.cat].label+
                       "</span><span class='e'>"+o.pts+" pts</span></div>";
-             }).join("")+"</div>";
+             }).join("")+"</div></details>";
       }
-    } else {
-      var o = a.opts[0], nb = 5 - o.keep.length;
-      var alts = a.opts.slice(1,4).sort(function(x,y){ return y.ev - x.ev; });
-      var main, meta, tgts = "";
-
-      if(nb === 0){
-        main = "Ne relancez rien";
-        meta = "Gardez les 5 dés et inscrivez « "+BYID[a.now[0].cat].label+" » ("+a.now[0].pts+" pts).";
-      } else {
-        main = o.keep.length ? "Gardez <span class='adv-dice'>"+dice2glyph(o.keep)+"</span>"
-                             : "Relancez les 5 dés";
-        meta = (o.keep.length ? "Relancez "+nb+" dé"+(nb>1?"s":"")
-                              : "Aucun dé ne vaut la peine d'être gardé")+
-               " · en moyenne <b>"+fmt(o.ev)+" pts</b> sur ce tour";
-
-        /* la garde conseillée peut rapporter un peu moins ce tour-ci mais viser le bonus */
-        if(alts.length && alts[0].ev > o.ev + 0.05){
-          meta += "<br><i>Garder "+(alts[0].keep.length ? dice2glyph(alts[0].keep) : "aucun dé")+
-                  " rapporterait un peu plus ce tour-ci ("+fmt(alts[0].ev)+
-                  " pts), mais ce choix prépare mieux le bonus des 63.</i>";
-        }
-
-        /* le point essentiel : quelles combinaisons on cherche vraiment à décrocher */
-        tgts = "<div class='tgts'><div class='tgts-t'>Ce que vous cherchez à décrocher</div>"+
-               tgtList(o.targets, 4)+"</div>";
-      }
-
-      h += "<div class='adv-card'><div class='adv-lead'>"+(advRolls===2?"Après le 1ᵉʳ jet":"Après le 2ᵉ jet")+"</div>"+
-           "<div class='adv-main'>"+main+"</div><div class='adv-meta'>"+meta+"</div>"+tgts+"</div>";
-
-      if(alts.length){
-        h += "<div class='alts'><div class='alts-t'>Autres gardes</div>"+
-             alts.map(function(x){
-               return "<div class='alt2'><div class='alt2-h'>"+
-                 "<span class='alt2-d"+(x.keep.length ? "" : " txt")+"'>"+
-                 (x.keep.length ? dice2glyph(x.keep) : "relancer les 5 dés")+"</span>"+
-                 "<span class='alt2-e'>≈ "+fmt(x.ev)+" pts</span></div>"+
-                 "<div class='tgts plain'>"+tgtList(x.targets, 3)+"</div></div>";
-             }).join("")+"</div>";
-      }
-      h += "<div class='alts'><div class='alts-t'>Si vous vous arrêtiez maintenant</div>"+
-           "<div class='alt'><span class='d' style='font-size:13px'>"+BYID[a.now[0].cat].label+
-           "</span><span class='e'>"+a.now[0].pts+" pts</span></div></div>";
+      out.innerHTML = h; return;
     }
+
+    /* ---------- pendant les relances : objectifs à tenter + filet garanti ---------- */
+    var keep = a.opts[0].keep, nb = 5 - keep.length, rl = advRolls;
+    drawSlots(keep);
+
+    var chase = [], floors = [];
+    a.open.forEach(function(id){
+      var fi = floorInfo(keep, id);
+      if(fi.guaranteed){ if(fi.exp > 0) floors.push({ cat:id, exp:fi.exp }); return; }
+      if(!LOWCHASE[id]) return;                 /* une face du haut n'est pas un objectif */
+      var pc = pComplete(keep, rl, id);
+      if(pc >= 0.05 && pc < 0.999) chase.push({ cat:id, pc:pc });
+    });
+    chase.sort(function(x,y){ return y.pc - x.pc; });
+    chase = chase.slice(0,3);
+    floors.sort(function(x,y){ return (y.exp - x.exp) || ((x.cat==="chance")-(y.cat==="chance")); });
+    var floor = floors[0];
+
+    if(chase.length){
+      h += "<div class='keeplg'><span class='k'>✓ à garder</span><span>↻ à relancer</span></div>";
+      h += "<div class='adv-card'><div class='adv-lead'>"+lead+"</div>"+
+           "<div class='adv-main'>Ce que vous pouvez tenter</div>"+
+           "<div class='adv-obj-t'>Vos chances de réussir</div>"+
+           "<ul class='adv-obj'>"+
+           chase.map(function(t){
+             return "<li><span class='o-nm'>"+BYID[t.cat].label+"</span>"+
+                    "<span class='o-pc'>"+pct(t.pc)+"</span></li>";
+           }).join("")+"</ul>";
+      if(floor){
+        h += "<div class='adv-floor'>Si aucun ne réussit, "+floorTxt(floor)+
+             " reste assuré — vous pourrez toujours l'inscrire.</div>";
+      }
+      h += "</div>";
+    } else {
+      /* rien à tenter : on annonce l'acquis et on propose de l'inscrire */
+      var bn = a.now[0];
+      h += "<div class='keeplg'><span class='k'>✓ à garder</span><span>↻ à relancer</span></div>";
+      h += "<div class='adv-card'><div class='adv-lead'>"+lead+"</div>"+
+           "<div class='adv-main'>Vous tenez déjà "+BYID[bn.cat].label+" ("+bn.pts+" pt"+(bn.pts>1?"s":"")+")</div>"+
+           "<div class='adv-meta'>"+(nb===0
+             ? "Gardez les 5 dés, rien de mieux à tenter."
+             : "Aucun objectif ne vaut le risque — vous pouvez l'inscrire.")+"</div>";
+      if(floor && floor.cat !== bn.cat){
+        h += "<div class='adv-floor'>Autre case garantie : "+floorTxt(floor)+".</div>";
+      }
+      h += "</div>";
+      h += "<button class='btn apply' id='adv-apply' data-cat='"+bn.cat+"' data-pts='"+bn.pts+"'>"+
+           "Inscrire "+bn.pts+" en « "+BYID[bn.cat].label+" »</button>";
+    }
+
+    /* détail avancé (ancien affichage riche, pour qui veut creuser) */
+    h += "<details class='adv-more'><summary>Voir le détail</summary>";
+    h += "<div class='tgts'><div class='tgts-t'>Où vous atterrissez le plus souvent</div>"+
+         tgtList(a.opts[0].targets, 4)+"</div>";
+    var alts = a.opts.slice(1,4).sort(function(x,y){ return y.ev - x.ev; });
+    if(alts.length){
+      h += "<div class='alts'><div class='alts-t'>Autres gardes possibles</div>"+
+           alts.map(function(x){
+             return "<div class='alt2'><div class='alt2-h'>"+
+               "<span class='alt2-d"+(x.keep.length ? "" : " txt")+"'>"+
+               (x.keep.length ? dice2glyph(x.keep) : "relancer les 5 dés")+"</span>"+
+               "<span class='alt2-e'>≈ "+fmt(x.ev)+" pts</span></div>"+
+               "<div class='tgts plain'>"+tgtList(x.targets, 3)+"</div></div>";
+           }).join("")+"</div>";
+    }
+    h += "</details>";
+
     out.innerHTML = h;
   }
 
