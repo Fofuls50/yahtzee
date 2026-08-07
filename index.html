@@ -591,6 +591,32 @@
   .wc-theme{margin-top:26px;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
   .wc-theme>span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
   .wc-theme .seg{width:100%;max-width:300px}
+
+  /* ---- tour de jeu ---- */
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 22px);
+    transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--paper);
+    padding:12px 18px;border-radius:12px;font-size:13.5px;font-weight:600;max-width:88%;
+    text-align:center;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s ease;z-index:80}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .turn-b{display:flex;align-items:center;gap:10px;margin:0 0 12px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .turn-b .tb-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .turn-b .tb-txt{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--ink);line-height:1.35}
+  .turn-b .tb-txt b{color:var(--accent-ink)}
+  .turn-b .tb-ctl{flex:none;display:flex;gap:6px}
+  .turn-b .tb-ctl button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line-strong);
+    background:var(--paper);color:var(--muted);display:grid;place-items:center;font-size:16px;font-weight:700}
+  .turn-b.admin{border-color:var(--gold);background:var(--gold-soft)}
+  .turn-b.admin .tb-dot{background:var(--gold)}
+  .turn-b.admin .tb-txt b{color:var(--gold)}
+  .tb-admin{flex:none;display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .tb-sw{width:38px;height:22px;border-radius:999px;background:var(--line-strong);position:relative;transition:.15s;flex:none}
+  .tb-sw.on{background:var(--gold)}
+  .tb-sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+  .tb-sw.on i{left:18px}
+  th.turncol,td.turncol{background:color-mix(in srgb,var(--accent-soft) 60%,transparent)!important}
+  .cell .corr{color:var(--gold);font-size:11px;vertical-align:super;margin-left:1px;font-weight:800}
 </style>
 </head>
 <body>
@@ -686,6 +712,8 @@
     </button>
   </header>
 
+  <div id="turn-wrap"></div>
+
   <div class="sheet">
     <div class="scroller">
       <table id="grid"></table>
@@ -701,6 +729,7 @@
 
 <div class="backdrop" id="backdrop"></div>
 <div class="busy" id="busy"></div>
+<div id="toast" class="toast"></div>
 
 <div class="modal" id="modal-score" role="dialog" aria-modal="true">
   <div class="grabber"></div>
@@ -883,6 +912,41 @@
   function cfg(){ return state.config || (state.config = defaultConfig()); }
   migrateConfig(state);
 
+  /* ---------------- tour de jeu ----------------
+     order = ids des joueurs dans l'ordre où ils ont joué leur 1er tour (fixe l'ordre) ;
+     pos = index du joueur attendu, à partir du 2e tour. adminMode : correction libre. */
+  function ensureTurn(s){ if(!s.turn || !s.turn.order) s.turn = { order:[], pos:0 }; return s; }
+  ensureTurn(state);
+  var adminMode = false;
+  function canAdmin(){ return !OL || amHost(); }              /* qui peut corriger */
+  function turnLockActive(){ return !OL && state.players.length > 1; }  /* online : étape suivante */
+  function playerById(id){
+    for(var i=0;i<state.players.length;i++) if(state.players[i].id === id) return state.players[i];
+    return null;
+  }
+  function roundOne(){ return state.turn.order.length < state.players.length; }
+  function allowedIds(){
+    var t = state.turn, ids = state.players.map(function(p){ return p.id; });
+    if(state.players.length <= 1) return ids;
+    if(t.order.length < state.players.length)
+      return ids.filter(function(id){ return t.order.indexOf(id) < 0; });   /* 1er tour : pas encore joué */
+    return [ t.order[t.pos % t.order.length] ];
+  }
+  function isMyTurn(p){ return allowedIds().indexOf(p.id) >= 0; }
+  function turnPlayer(){ return roundOne() ? null : playerById(state.turn.order[state.turn.pos % state.turn.order.length]); }
+  function advanceTurn(p){
+    var t = state.turn, n = state.players.length;
+    if(t.order.indexOf(p.id) < 0){ t.order.push(p.id); if(t.order.length === n) t.pos = 0; }
+    else t.pos = (t.pos + 1) % n;
+  }
+  function turnSkip(){ var t=state.turn, n=state.players.length; if(!roundOne()){ t.pos=(t.pos+1)%n; save(); render(); } }
+  function turnBack(){
+    var t=state.turn, n=state.players.length;
+    if(roundOne()){ if(t.order.length) t.order.pop(); }
+    else t.pos = (t.pos - 1 + n) % n;
+    save(); render();
+  }
+
   /* ---------------- session en ligne ----------------
      OL vaut null en jeu local ; sinon c'est le contrôleur de la partie en ligne
      (défini plus bas). En ligne, state.players reflète en direct la base Firebase,
@@ -924,8 +988,10 @@
   var grid = document.getElementById("grid");
 
   function render(){
+    ensureTurn(state);
     var pl = state.players, n = pl.length;
     var addable = !OL && n < MAX;          /* colonne « + » : jamais en ligne */
+    var tp = turnLockActive() ? turnPlayer() : null;   /* joueur dont c'est le tour (2e tour+) */
     var h = "";
 
     h += "<colgroup><col class='cat'>";
@@ -937,7 +1003,8 @@
     h += "<thead><tr><th class='cat-h'></th>";
     pl.forEach(function(p,i){
       var ro = OL && !canEdit(p);          /* nom non modifiable pour les colonnes des autres */
-      h += "<th"+(isMe(p)?" class='mecol'":"")+"><input class='pname' value='"+esc(p.name)+
+      var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
+      h += "<th"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+"><input class='pname' value='"+esc(p.name)+
            "' data-name='"+i+"' list='known-names' maxlength='12' autocomplete='off' "+
            "autocapitalize='words' spellcheck='false'"+(ro?" readonly":"")+">"+
            (isMe(p)?"<span class='metag'>moi</span>":"")+"</th>";
@@ -992,19 +1059,52 @@
     grid.innerHTML = h;
     document.getElementById("known-names").innerHTML =
       knownNames().map(function(n){ return "<option value='"+esc(n)+"'>"; }).join("");
+    renderTurn();
     renderOnline();
     renderDone();
     save();
   }
 
+  /* bandeau : à qui c'est le tour + contrôles organisateur */
+  function renderTurn(){
+    var w = document.getElementById("turn-wrap");
+    if(!turnLockActive() || gameComplete()){ w.innerHTML = ""; return; }
+    var admin = adminMode && canAdmin();
+    var msg;
+    if(admin) msg = "<b>Mode organisateur</b> — corrigez n'importe quelle case (marquée ✱).";
+    else if(roundOne()) msg = "Premier tour : chacun inscrit une case pour fixer l'ordre de jeu.";
+    else { var tpl = turnPlayer(); msg = "C'est au tour de <b>" + esc(tpl ? tpl.name : "…") + "</b>."; }
+
+    var ctl = "";
+    if(canAdmin() && !roundOne() && !admin)
+      ctl = "<div class='tb-ctl'><button data-turn='back' aria-label='Revenir au joueur précédent'>↶</button>"+
+            "<button data-turn='skip' aria-label='Passer ce joueur'>↷</button></div>";
+    var sw = canAdmin()
+      ? "<div class='tb-admin'>Organiser<button class='tb-sw"+(admin?" on":"")+"' data-turn='admin' role='switch' aria-checked='"+(admin?"true":"false")+"'><i></i></button></div>"
+      : "";
+
+    w.innerHTML = "<div class='turn-b"+(admin?" admin":"")+"'><span class='tb-dot'></span>"+
+                  "<span class='tb-txt'>"+msg+"</span>"+ctl+sw+"</div>";
+  }
+
+  document.getElementById("turn-wrap").addEventListener("click", function(e){
+    var b = e.target.closest("[data-turn]"); if(!b) return;
+    var a = b.getAttribute("data-turn");
+    if(a === "admin"){ if(!canAdmin()) return; adminMode = !adminMode; render(); return; }
+    if(a === "skip"){ turnSkip(); return; }
+    if(a === "back"){ turnBack(); return; }
+  });
+
   function row(c, pl, addable){
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
     pl.forEach(function(p,i){
       var v = p.s[c.id], ed = canEdit(p);
-      var cls = (v===undefined||v===null ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
+      var filled = !(v===undefined||v===null);
+      var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
                 (isMe(p)?" mecol":"")+(ed?"":" locked");
-      var txt = v===undefined||v===null ? "–" : (v===0 ? "✕" : v);
-      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'>"+txt+"</button></td>";
+      var txt = !filled ? "–" : (v===0 ? "✕" : v);
+      var star = (filled && p.corrected && p.corrected[c.id]) ? "<span class='corr'>✱</span>" : "";
+      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'>"+txt+star+"</button></td>";
     });
     if(addable) h += "<td></td>";
     return h + "</tr>";
@@ -1049,9 +1149,31 @@
   /* --- saisie d'un score --- */
   var cur = null;
 
+  /* petit message éphémère (ex. « ce n'est pas votre tour ») */
+  var toastT;
+  function toast(msg){
+    var el = document.getElementById("toast");
+    el.textContent = msg; el.classList.add("on");
+    clearTimeout(toastT); toastT = setTimeout(function(){ el.classList.remove("on"); }, 2600);
+  }
+
   /* saisie d'un score : uniquement les valeurs, pas d'explication */
   function openScore(pi, catId){
     var p = state.players[pi];
+    var isBonus = catId === "__yb";
+    var byAdmin = adminMode && canAdmin();
+    /* verrouillage par tour (hors admin, hors bonus Yam's) */
+    if(!byAdmin && !isBonus && turnLockActive()){
+      if(!isMyTurn(p)){
+        var w = turnPlayer();
+        toast(w ? "C'est au tour de " + w.name + " de jouer." : "C'est au tour d'un autre joueur.");
+        return;
+      }
+      if(p.s[catId] !== undefined){
+        toast("Case déjà remplie — activez le mode organisateur pour la corriger.");
+        return;
+      }
+    }
     cur = { pi:pi, cat:catId };
     var title, sub, opts, sel;
 
@@ -1129,18 +1251,32 @@
     var v = parseInt(b.getAttribute("data-val"),10);
     var p = state.players[cur.pi];
     if(OL && !canEdit(p)){ close(); return; }
-    if(cur.cat === "__yb") p.bonusYams = v; else p.s[cur.cat] = v;
+    var isBonus = cur.cat === "__yb";
+    var byAdmin = adminMode && canAdmin();
+    var wasEmpty = isBonus ? !p.bonusYams : (p.s[cur.cat] === undefined);
+    if(isBonus) p.bonusYams = v; else p.s[cur.cat] = v;
+    if(!isBonus){
+      p.corrected = p.corrected || {};
+      if(byAdmin) p.corrected[cur.cat] = true;                 /* case touchée par l'organisateur */
+      else if(wasEmpty && turnLockActive()) advanceTurn(p);    /* jeu normal : on passe la main */
+    }
     if(OL) pushValue(p, cur.cat, v);
-    close(); render();
+    save(); close(); render();
   });
 
   document.getElementById("ms-clear").addEventListener("click", function(){
     if(!cur) return;
     var p = state.players[cur.pi];
     if(OL && !canEdit(p)){ close(); return; }
-    if(cur.cat === "__yb") p.bonusYams = 0; else delete p.s[cur.cat];
+    var isBonus = cur.cat === "__yb";
+    var byAdmin = adminMode && canAdmin();
+    if(!isBonus && !byAdmin && turnLockActive()){
+      toast("Activez le mode organisateur pour effacer une case."); return;
+    }
+    if(isBonus) p.bonusYams = 0;
+    else { delete p.s[cur.cat]; if(p.corrected) delete p.corrected[cur.cat]; }
     if(OL) pushValue(p, cur.cat, null);
-    close(); render();
+    save(); close(); render();
   });
 
   /* --- interactions grille --- */
@@ -1742,8 +1878,10 @@
   }
 
   function resetGame(){
-    state.players.forEach(function(p){ p.s = {}; p.bonusYams = 0; });
+    state.players.forEach(function(p){ p.s = {}; p.bonusYams = 0; p.corrected = {}; });
     state.archived = false;
+    state.turn = { order:[], pos:0 };
+    adminMode = false;
     render();
   }
 
@@ -2448,7 +2586,8 @@
   function hideWelcome(){ welcomeEl.hidden = true; }
 
   function freshLocalGame(){
-    state = { players:[ mk("Joueur 1"), mk("Joueur 2") ], config: defaultConfig() };
+    state = { players:[ mk("Joueur 1"), mk("Joueur 2") ], config: defaultConfig(), turn:{ order:[], pos:0 } };
+    adminMode = false;
     save(); render();
   }
 
