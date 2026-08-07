@@ -2630,7 +2630,14 @@
     else { (v===null) ? dbDel(base+"/s/"+col+"/"+cat) : dbPut(base+"/s/"+col+"/"+cat, v); }
   }
   function pushName(p){ if(OL) dbPut("games/"+OL.gid+"/players/"+p.id+"/name", (p.name||"").trim()||"?"); }
-  function pushTurn(){ if(OL) dbPut("games/"+OL.gid+"/turn", { order:state.turn.order, pos:state.turn.pos }); }
+  function pushTurn(){
+    if(!OL) return;
+    dbPut("games/"+OL.gid+"/turn", { order:state.turn.order, pos:state.turn.pos }).then(function(res){
+      if(!res.ok) toast("Le passage de tour n'a pas pu être synchronisé (règles Firebase ?).");
+    }).catch(function(){
+      toast("Le passage de tour n'a pas pu être synchronisé (réseau).");
+    });
+  }
   function pushCorrected(p, col, cat, val){
     if(!OL) return;
     var pth = "games/"+OL.gid+"/players/"+p.id+"/corrected/"+col+"/"+cat;
