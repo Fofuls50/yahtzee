@@ -100,7 +100,7 @@
     width:38px;height:38px;border-radius:12px;
     background:linear-gradient(135deg, var(--accent), #0d9488);
     display:grid;place-items:center;flex:none;box-shadow:0 4px 12px rgba(15,118,110,.3);
-    transition:transform .2s ease
+    transition:transform .2s ease;cursor:pointer
   }
   .logo:hover{transform:rotate(-4deg) scale(1.05)}
   .logo svg{width:22px;height:22px;display:block}
@@ -686,7 +686,7 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <div class="logo">
+      <div class="logo" id="btn-home" role="button" tabindex="0" aria-label="Retour à l'accueil">
         <svg viewBox="0 0 32 32" fill="#fff" aria-hidden="true">
           <circle cx="9" cy="9" r="3"/><circle cx="23" cy="9" r="3"/>
           <circle cx="16" cy="16" r="3"/>
@@ -2744,6 +2744,12 @@
   }
   function showWelcome(){ renderWelcomeActions(); welcomeEl.hidden = false; }
   function hideWelcome(){ welcomeEl.hidden = true; }
+
+  var btnHome = document.getElementById("btn-home");
+  btnHome.addEventListener("click", showWelcome);
+  btnHome.addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); showWelcome(); }
+  });
 
   function freshLocalGame(){
     state = { players:[ mk("Joueur 1"), mk("Joueur 2") ], config: defaultConfig(), turn:{ order:[], pos:0 } };
