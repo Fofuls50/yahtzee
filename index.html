@@ -789,6 +789,24 @@
 
   function mk(name){ return { id:"p"+Math.random().toString(36).slice(2,9), name:name, s:{}, bonusYams:0 }; }
 
+  /* ---------------- règles de la partie ----------------
+     Paramètres modifiables (preset classique par défaut). Le scoring et les bonus
+     lisent cette config ; cfg() garantit qu'elle existe toujours (parties anciennes,
+     parties en ligne). */
+  function defaultConfig(){
+    return { preset:"classic", upperBonus:{ threshold:63, value:35 },
+             yamsBonus:100, frenchScore:false, carreBonus:40, plusMinus:false };
+  }
+  function migrateConfig(s){
+    var d = defaultConfig();
+    s.config = s.config || {};
+    for(var k in d) if(s.config[k] === undefined) s.config[k] = d[k];
+    if(!s.config.upperBonus) s.config.upperBonus = d.upperBonus;
+    return s;
+  }
+  function cfg(){ return state.config || (state.config = defaultConfig()); }
+  migrateConfig(state);
+
   /* ---------------- session en ligne ----------------
      OL vaut null en jeu local ; sinon c'est le contrôleur de la partie en ligne
      (défini plus bas). En ligne, state.players reflète en direct la base Firebase,
@@ -819,10 +837,10 @@
 
   /* ---------------- calculs ---------------- */
   function sumUp(p){ return UP.reduce(function(t,c){ return t + (p.s[c.id]||0); },0); }
-  function bonusUp(p){ return sumUp(p) >= 63 ? 35 : 0; }
+  function bonusUp(p){ var b = cfg().upperBonus; return sumUp(p) >= b.threshold ? b.value : 0; }
   function totalUp(p){ return sumUp(p) + bonusUp(p); }
   function totalLow(p){
-    return LOW.reduce(function(t,c){ return t + (p.s[c.id]||0); },0) + (p.bonusYams||0)*100;
+    return LOW.reduce(function(t,c){ return t + (p.s[c.id]||0); },0) + (p.bonusYams||0)*cfg().yamsBonus;
   }
   function grand(p){ return totalUp(p) + totalLow(p); }
 
@@ -856,13 +874,14 @@
     h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section haute</th></tr>";
     UP.forEach(function(c){ h += row(c, pl, addable); });
 
+    var ub = cfg().upperBonus;
     h += calcRow("Total haut", pl, addable, function(p){ return sumUp(p); });
     h += "<tr class='calc'><th data-info='__bonus'>"+
-         catLabel({ label:"Bonus", sub:"à partir de 63 points" })+"</th>";
+         catLabel({ label:"Bonus", sub:"à partir de "+ub.threshold+" points" })+"</th>";
     pl.forEach(function(p){
       var s = sumUp(p), b = bonusUp(p);
-      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+(b?"+35":"—")+
-           "<span class='bonus-track'>"+s+"/63</span></td>";
+      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+(b?"+"+ub.value:"—")+
+           "<span class='bonus-track'>"+s+"/"+ub.threshold+"</span></td>";
     });
     if(addable) h += "<td></td>";
     h += "</tr>";
@@ -870,13 +889,14 @@
     h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section basse</th></tr>";
     LOW.forEach(function(c){ h += row(c, pl, addable); });
 
+    var yb = cfg().yamsBonus;
     h += "<tr><th data-info='__yb'>"+
-         catLabel({ label:"Bonus Yam's", sub:"+100 par Yam's en plus" })+"</th>";
+         catLabel({ label:"Bonus Yam's", sub:"+"+yb+" par Yam's en plus" })+"</th>";
     pl.forEach(function(p,i){
       var v = p.bonusYams||0, ed = canEdit(p);
       var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
       h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='__yb'>"+
-           (v? "+"+(v*100) : "–")+"</button></td>";
+           (v? "+"+(v*yb) : "–")+"</button></td>";
     });
     if(addable) h += "<td></td>";
     h += "</tr>";
@@ -962,7 +982,7 @@
     if(catId === "__yb"){
       title = "Bonus Yam's";
       sub = p.name + " — Yam's supplémentaires réalisés";
-      opts = [0,1,2,3,4].map(function(k){ return { v:k, label: k? "+"+(k*100) : "0" }; });
+      opts = [0,1,2,3,4].map(function(k){ return { v:k, label: k? "+"+(k*cfg().yamsBonus) : "0" }; });
       sel = p.bonusYams||0;
     } else {
       var c = BYID[catId];
@@ -1227,15 +1247,17 @@
     var cat = BYID[id];
     if(cat.sec === "up") return c[cat.face] * cat.face;
     var mx = Math.max(c[1],c[2],c[3],c[4],c[5],c[6]);
+    var mxFace = 1; for(i=2;i<=6;i++){ if(c[i] > c[mxFace]) mxFace = i; }
+    var fr = cfg().frenchScore;
     switch(id){
       case "brelan": return mx>=3 ? sum : 0;
-      case "carre":  return mx>=4 ? sum : 0;
+      case "carre":  return mx>=4 ? (fr ? cfg().carreBonus + 4*mxFace : sum) : 0;
       case "full":   return (mx===5 || (mx===3 && [1,2,3,4,5,6].some(function(v){return c[v]===2;}))) ? 25 : 0;
       case "petite":
         for(i=1;i<=3;i++) if(c[i]&&c[i+1]&&c[i+2]&&c[i+3]) return 30;
         return 0;
       case "grande": return (c[1]&&c[2]&&c[3]&&c[4]&&c[5]) || (c[2]&&c[3]&&c[4]&&c[5]&&c[6]) ? 40 : 0;
-      case "yams":   return mx===5 ? 50 : 0;
+      case "yams":   return mx===5 ? (fr ? 50 + sum : 50) : 0;
       case "chance": return sum;
     }
     return 0;
