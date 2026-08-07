@@ -193,6 +193,13 @@
   tr.total td{font-family:'Outfit',sans-serif;font-size:21px;font-weight:800;letter-spacing:-.02em}
   tr.total td.lead{position:relative;background:linear-gradient(135deg, #d97706, #b45309)}
   tr.total td.lead::after{content:"👑";display:block;font-size:12px;margin-top:-3px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+  /* multi-colonnes : sous-total par colonne (clair) + total joueur (fort) */
+  tr.total.sub th,tr.total.sub td{background:var(--accent-soft);color:var(--accent-ink);height:42px}
+  tr.total.sub th{font-size:11.5px}
+  tr.total.sub td{font-size:16px}
+  tr.total.grand th,tr.total.grand td{background:linear-gradient(135deg, var(--accent), #0d9488);color:#fff}
+  thead th.colh{font-size:11px;font-weight:700;color:var(--muted);padding:2px 3px 7px;vertical-align:top;text-align:center}
+  thead th.colh .colh-ar{display:block;font-size:14px;color:var(--accent);line-height:1;margin-bottom:1px}
   .bonus-track{font-size:10.5px;color:var(--muted);font-weight:600;display:block;margin-top:-2px}
 
   .foot{
@@ -559,6 +566,18 @@
   .prow .rm{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--muted);flex:none}
   .prow .rm svg{width:16px;height:16px}
 
+  /* ---- sélecteur de colonnes ---- */
+  .colpick{margin:2px 0 14px}
+  .colpick-t{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);margin-bottom:8px}
+  .colpick-row{display:flex;flex-wrap:wrap;gap:7px}
+  .colchip{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border-radius:11px;
+    border:1px solid var(--line);background:var(--paper);font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.12s ease}
+  .colchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+  .colchip:active{transform:scale(.96)}
+  .colchip input{display:none}
+  .colchip .ar{color:var(--accent);font-weight:800;font-size:15px}
+  .colpick.locked .colchip{opacity:.5;pointer-events:none}
+
   /* ---- page d'accueil ---- */
   .welcome{position:fixed;inset:0;z-index:60;background:var(--paper);
     display:flex;align-items:center;justify-content:center;padding:26px 18px;overflow-y:auto}
@@ -819,6 +838,7 @@
   <div class="m-title">Joueurs</div>
   <div class="m-sub" id="mp-sub"></div>
   <div id="mp-online"></div>
+  <div id="mp-cols"></div>
   <div class="plist" id="mp-list"></div>
   <div class="m-actions">
     <button class="btn ghost" id="mp-add">＋ Ajouter</button>
@@ -918,7 +938,18 @@
   /* ---------------- colonnes ----------------
      Chaque joueur a un jeu de scores PAR colonne : p.s[colId][catId].
      Par défaut une seule colonne « Libre » → comportement identique à avant. */
-  function columns(){ var c = cfg().columns; return (c && c.length) ? c : defaultConfig().columns; }
+  /* En ligne, on force une seule colonne tant que la config n'est pas synchronisée
+     (évite que les appareils affichent des grilles différentes). Multi-colonnes = local. */
+  function columns(){
+    if(OL) return defaultConfig().columns;
+    var c = cfg().columns; return (c && c.length) ? c : defaultConfig().columns;
+  }
+  var COLDEFS = [
+    { id:"libre",  type:"free",   label:"Libre",       short:"↕" },
+    { id:"desc",   type:"desc",   label:"Descendante", short:"↓" },
+    { id:"mont",   type:"mont",   label:"Montante",    short:"↑" },
+    { id:"impose", type:"impose", label:"Imposé",      short:"◆" }
+  ];
   function mainCol(){ return columns()[0].id; }
   function colVal(p, col, cat){ var s = p.s && p.s[col]; return s ? s[cat] : undefined; }
   function setColVal(p, col, cat, v){ (p.s[col] || (p.s[col] = {}))[cat] = v; }
@@ -1032,71 +1063,102 @@
   function render(){
     ensureTurn(state);
     var pl = state.players, n = pl.length;
+    var cols = columns(), nc = cols.length, multi = nc > 1;
     var addable = !OL && n < MAX && !gameStarted();   /* « + » : jamais en ligne ni en cours de partie */
     var tp = turnLockActive() ? turnPlayer() : null;   /* joueur dont c'est le tour (2e tour+) */
+    var totalCols = 1 + n*nc + (addable?1:0);
     var h = "";
 
+    function nameInput(p,i){
+      var ro = OL && !canEdit(p);
+      return "<input class='pname' value='"+esc(p.name)+"' data-name='"+i+"' list='known-names' "+
+             "maxlength='12' autocomplete='off' autocapitalize='words' spellcheck='false'"+(ro?" readonly":"")+">"+
+             (isMe(p)?"<span class='metag'>moi</span>":"");
+    }
+    function colHead(col){
+      var m = {free:"Libre",desc:"Desc.",mont:"Mont.",impose:"Imposé"};
+      return "<span class='colh-ar'>"+(col.short||"")+"</span>"+(m[col.type]||col.label||"");
+    }
+
     h += "<colgroup><col class='cat'>";
-    for(var i=0;i<n;i++) h += "<col class='pl'>";
+    for(var pi2=0;pi2<n;pi2++) for(var ci2=0;ci2<nc;ci2++) h += "<col class='pl'>";
     if(addable) h += "<col style='width:44px'>";
     h += "</colgroup>";
 
-    /* en-tête */
-    h += "<thead><tr><th class='cat-h'></th>";
-    pl.forEach(function(p,i){
-      var ro = OL && !canEdit(p);          /* nom non modifiable pour les colonnes des autres */
-      var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
-      h += "<th"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+"><input class='pname' value='"+esc(p.name)+
-           "' data-name='"+i+"' list='known-names' maxlength='12' autocomplete='off' "+
-           "autocapitalize='words' spellcheck='false'"+(ro?" readonly":"")+">"+
-           (isMe(p)?"<span class='metag'>moi</span>":"")+"</th>";
-    });
-    if(addable) h += "<th><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
-    h += "</tr></thead><tbody>";
+    /* en-tête : à plusieurs colonnes, deux niveaux (joueur puis colonnes) */
+    h += "<thead>";
+    if(multi){
+      h += "<tr><th class='cat-h' rowspan='2'></th>";
+      pl.forEach(function(p,i){
+        var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
+        h += "<th colspan='"+nc+"'"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+">"+nameInput(p,i)+"</th>";
+      });
+      if(addable) h += "<th rowspan='2'><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
+      h += "</tr><tr>";
+      pl.forEach(function(p){ cols.forEach(function(col){ h += "<th class='colh'>"+colHead(col)+"</th>"; }); });
+      h += "</tr>";
+    } else {
+      h += "<tr><th class='cat-h'></th>";
+      pl.forEach(function(p,i){
+        var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
+        h += "<th"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+">"+nameInput(p,i)+"</th>";
+      });
+      if(addable) h += "<th><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
+      h += "</tr>";
+    }
+    h += "</thead><tbody>";
 
-    var span = n + (addable?1:0);
-
-    h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section haute</th></tr>";
+    h += "<tr class='sec'><th colspan='"+totalCols+"'>Section haute</th></tr>";
     UP.forEach(function(c){ h += row(c, pl, addable); });
 
     var ub = cfg().upperBonus;
-    h += calcRow("Total haut", pl, addable, function(p){ return sumUp(p); });
+    h += calcRow("Total haut", pl, addable, function(p,col){ return sumUpCol(p,col); });
     h += "<tr class='calc'><th data-info='__bonus'>"+
          catLabel({ label:"Bonus", sub:"à partir de "+ub.threshold+" points" })+"</th>";
-    pl.forEach(function(p){
-      var s = sumUp(p), b = bonusUp(p);
+    pl.forEach(function(p){ cols.forEach(function(col){
+      var s = sumUpCol(p,col.id), b = bonusUpCol(p,col.id);
       h += "<td"+(isMe(p)?" class='mecol'":"")+">"+(b?"+"+ub.value:"—")+
            "<span class='bonus-track'>"+s+"/"+ub.threshold+"</span></td>";
-    });
+    }); });
     if(addable) h += "<td></td>";
     h += "</tr>";
 
-    h += "<tr class='sec'><th colspan='"+(span+1)+"'>Section basse</th></tr>";
+    h += "<tr class='sec'><th colspan='"+totalCols+"'>Section basse</th></tr>";
     LOW.forEach(function(c){ h += row(c, pl, addable); });
 
-    var yb = cfg().yamsBonus, ybCol = mainCol();
+    var yb = cfg().yamsBonus;
     h += "<tr><th data-info='__yb'>"+
          catLabel({ label:"Bonus Yam's", sub:"+"+yb+" par Yam's en plus" })+"</th>";
-    pl.forEach(function(p,i){
-      var v = colBonus(p, ybCol), ed = canEdit(p);
+    pl.forEach(function(p,i){ cols.forEach(function(col){
+      var v = colBonus(p, col.id), ed = canEdit(p);
       var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
-      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='__yb'>"+
+      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='__yb'>"+
            (v? "+"+(v*yb) : "–")+"</button></td>";
-    });
+    }); });
     if(addable) h += "<td></td>";
     h += "</tr>";
 
-    h += calcRow("Total bas", pl, addable, function(p){ return totalLow(p); });
+    h += calcRow("Total bas", pl, addable, function(p,col){ return totalLowCol(p,col); });
 
     var best = Math.max.apply(null, pl.map(grand));
-    h += "<tr class='total'><th>TOTAL</th>";
-    pl.forEach(function(p){
-      var g = grand(p);
-      var lead = (pl.length>1 && g===best && g>0) ? " lead" : "";
-      h += "<td class='"+(isMe(p)?"mecol":"")+lead+"'>"+g+"</td>";
-    });
+    h += "<tr class='total"+(multi?" sub":"")+"'><th>"+(multi?"Total colonne":"TOTAL")+"</th>";
+    pl.forEach(function(p){ cols.forEach(function(col){
+      var gc = grandCol(p,col.id);
+      var lead = (!multi && n>1 && gc===best && gc>0) ? " lead" : "";
+      h += "<td class='"+(isMe(p)?"mecol":"")+lead+"'>"+gc+"</td>";
+    }); });
     if(addable) h += "<td></td>";
-    h += "</tr></tbody>";
+    h += "</tr>";
+    if(multi){
+      h += "<tr class='total grand'><th>Total joueur</th>";
+      pl.forEach(function(p){
+        var g = grand(p), lead = (n>1 && g===best && g>0) ? " lead" : "";
+        h += "<td colspan='"+nc+"' class='"+(isMe(p)?"mecol":"")+lead+"'>"+g+"</td>";
+      });
+      if(addable) h += "<td></td>";
+      h += "</tr>";
+    }
+    h += "</tbody>";
 
     grid.innerHTML = h;
     document.getElementById("known-names").innerHTML =
@@ -1139,15 +1201,16 @@
 
   function row(c, pl, addable){
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
-    var col = mainCol();
     pl.forEach(function(p,i){
-      var v = colVal(p, col, c.id), ed = canEdit(p);
-      var filled = !(v===undefined||v===null);
-      var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
-                (isMe(p)?" mecol":"")+(ed?"":" locked");
-      var txt = !filled ? "–" : (v===0 ? "✕" : v);
-      var star = (filled && colCorr(p, col, c.id)) ? "<span class='corr'>✱</span>" : "";
-      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
+      columns().forEach(function(col){
+        var v = colVal(p, col.id, c.id), ed = canEdit(p);
+        var filled = !(v===undefined||v===null);
+        var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
+                  (isMe(p)?" mecol":"")+(ed?"":" locked");
+        var txt = !filled ? "–" : (v===0 ? "✕" : v);
+        var star = (filled && colCorr(p, col.id, c.id)) ? "<span class='corr'>✱</span>" : "";
+        h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
+      });
     });
     if(addable) h += "<td></td>";
     return h + "</tr>";
@@ -1162,9 +1225,11 @@
       "</span><span class='cat-sub'>"+c.sub+"</span></span></div>";
   }
 
-  function calcRow(label, pl, addable, fn){
+  function calcRow(label, pl, addable, fnCol){
     var h = "<tr class='calc'><th>"+label+"</th>";
-    pl.forEach(function(p){ h += "<td"+(isMe(p)?" class='mecol'":"")+">"+fn(p)+"</td>"; });
+    pl.forEach(function(p){ columns().forEach(function(col){
+      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+fnCol(p, col.id)+"</td>";
+    }); });
     if(addable) h += "<td></td>";
     return h + "</tr>";
   }
@@ -1201,8 +1266,9 @@
   }
 
   /* saisie d'un score : uniquement les valeurs, pas d'explication */
-  function openScore(pi, catId){
+  function openScore(pi, catId, colId){
     var p = state.players[pi];
+    var col = colId || mainCol();
     var isBonus = catId === "__yb";
     var byAdmin = adminMode && canAdmin();
     /* verrouillage par tour (hors admin, hors bonus Yam's) */
@@ -1213,12 +1279,12 @@
         toast(w ? "C'est au tour de " + w.name + " de jouer." : "C'est au tour d'un autre joueur.");
         return;
       }
-      if(colVal(p, mainCol(), catId) !== undefined){
+      if(colVal(p, col, catId) !== undefined){
         toast("Case déjà remplie — l'organisateur peut la corriger.");
         return;
       }
     }
-    cur = { pi:pi, cat:catId, col:mainCol() };
+    cur = { pi:pi, cat:catId, col:col };
     var title, sub, opts, sel;
 
     if(catId === "__yb"){
@@ -1330,7 +1396,7 @@
   /* --- interactions grille --- */
   grid.addEventListener("click", function(e){
     var cell = e.target.closest("[data-cell]");
-    if(cell){ openScore(+cell.getAttribute("data-cell"), cell.getAttribute("data-cat")); return; }
+    if(cell){ openScore(+cell.getAttribute("data-cell"), cell.getAttribute("data-cat"), cell.getAttribute("data-col")); return; }
     var inf = e.target.closest("[data-info]");
     if(inf){ openInfo(inf.getAttribute("data-info")); return; }
     if(e.target.closest("[data-add]")) addPlayer();
@@ -1370,6 +1436,18 @@
       "</button>"+
       "<p class='onl-hint'>Chacun sur son téléphone, scores en direct. "+
       "Les autres rejoignent en scannant un QR code.</p>";
+    document.getElementById("mp-cols").innerHTML =
+      "<div class='colpick"+(locked?" locked":"")+"'>"+
+        "<div class='colpick-t'>Colonnes de jeu"+(locked?" (verrouillé)":"")+"</div>"+
+        "<div class='colpick-row'>"+
+          COLDEFS.map(function(cd){
+            var on = cfg().columns.some(function(c){ return c.id===cd.id; });
+            return "<label class='colchip"+(on?" on":"")+"'>"+
+              "<input type='checkbox' data-colid='"+cd.id+"'"+(on?" checked":"")+(locked?" disabled":"")+">"+
+              "<span class='ar'>"+cd.short+"</span>"+cd.label+"</label>";
+          }).join("")+
+        "</div>"+
+      "</div>";
     document.getElementById("mp-list").innerHTML = state.players.map(function(p,i){
       /* on ne propose pas un nom déjà porté par un autre joueur de la partie */
       var pris = state.players.filter(function(q,j){ return j !== i; })
@@ -1399,6 +1477,18 @@
 
   document.getElementById("mp-online").addEventListener("click", function(e){
     if(e.target.closest("#mp-create")) createGame();
+  });
+
+  document.getElementById("mp-cols").addEventListener("change", function(e){
+    if(!e.target.closest("[data-colid]") || gameStarted()) return;
+    var checked = {};
+    document.querySelectorAll("#mp-cols [data-colid]").forEach(function(x){
+      if(x.checked) checked[x.getAttribute("data-colid")] = true;
+    });
+    var chosen = COLDEFS.filter(function(cd){ return checked[cd.id]; });
+    if(!chosen.length) chosen = [COLDEFS[0]];              /* au moins une colonne */
+    cfg().columns = chosen.map(function(cd){ return { id:cd.id, type:cd.type, label:cd.label, short:cd.short }; });
+    save(); render(); renderPlayers();
   });
 
   /* Les pastilles du joueur touché s'affichent ; on ne les masque jamais au blur,
