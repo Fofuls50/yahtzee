@@ -558,9 +558,85 @@
   .prow input:focus{outline:none}
   .prow .rm{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--muted);flex:none}
   .prow .rm svg{width:16px;height:16px}
+
+  /* ---- page d'accueil ---- */
+  .welcome{position:fixed;inset:0;z-index:60;background:var(--paper);
+    display:flex;align-items:center;justify-content:center;padding:26px 18px;overflow-y:auto}
+  .welcome[hidden]{display:none}
+  .wc-card{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;
+    text-align:center;margin:auto}
+  .wc-logo{width:66px;height:66px;border-radius:19px;background:linear-gradient(135deg,var(--accent),#0d9488);
+    display:grid;place-items:center;box-shadow:var(--shadow-lg)}
+  .wc-logo svg{width:37px;height:37px}
+  .wc-title{font-family:'Outfit',sans-serif;font-size:32px;font-weight:800;margin:16px 0 4px;letter-spacing:-.02em}
+  .wc-tag{font-size:14.5px;color:var(--muted);margin:0 0 22px;font-weight:500;line-height:1.5;max-width:330px}
+  .wc-modes{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+  .wc-mode{display:flex;gap:12px;text-align:left;background:var(--card);border:1px solid var(--line);
+    border-radius:15px;padding:13px 14px}
+  .wc-mi{flex:none;width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent);
+    display:grid;place-items:center}
+  .wc-mi svg{width:21px;height:21px}
+  .wc-mode>div:last-child{min-width:0}
+  .wc-mode b{display:block;font-size:14px;font-weight:700;margin-bottom:2px;color:var(--ink)}
+  .wc-mode span{font-size:12.5px;color:var(--muted);line-height:1.45}
+  .wc-actions{width:100%;display:flex;flex-direction:column;gap:10px}
+  .wc-btn{width:100%;height:52px;border-radius:15px;font-size:16px;font-weight:700;
+    font-family:'Outfit',sans-serif;transition:.12s ease}
+  .wc-btn:active{transform:scale(.98)}
+  .wc-btn.primary{background:linear-gradient(135deg,var(--accent),#0d9488);color:#fff;
+    box-shadow:0 8px 22px -6px rgba(20,184,166,.5)}
+  .wc-btn.ghost{background:var(--card);border:1px solid var(--line-strong);color:var(--accent-ink)}
+  .wc-row{display:flex;gap:10px}
+  .wc-row .wc-btn{flex:1;min-width:0}
+  .wc-theme{margin-top:26px;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .wc-theme>span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+  .wc-theme .seg{width:100%;max-width:300px}
 </style>
 </head>
 <body>
+<div class="welcome" id="welcome" hidden>
+  <div class="wc-card">
+    <div class="wc-logo">
+      <svg viewBox="0 0 32 32" fill="#fff" aria-hidden="true">
+        <circle cx="9" cy="9" r="3"/><circle cx="23" cy="9" r="3"/>
+        <circle cx="16" cy="16" r="3"/>
+        <circle cx="9" cy="23" r="3"/><circle cx="23" cy="23" r="3"/>
+      </svg>
+    </div>
+    <h1 class="wc-title">Yam's</h1>
+    <p class="wc-tag">Votre feuille de score, en solo comme à plusieurs.</p>
+
+    <div class="wc-modes">
+      <div class="wc-mode">
+        <div class="wc-mi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="10" y1="18" x2="14" y2="18"/>
+          </svg>
+        </div>
+        <div><b>Sur un seul appareil</b><span>Notez les scores de tous les joueurs sur ce téléphone, cette tablette ou cet ordinateur.</span></div>
+      </div>
+      <div class="wc-mode">
+        <div class="wc-mi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="4" width="13" height="9" rx="1.5"/><line x1="5" y1="20" x2="12" y2="20"/><line x1="8" y1="15" x2="8" y2="20"/><rect x="17" y="9" width="5" height="11" rx="1.5"/>
+          </svg>
+        </div>
+        <div><b>À plusieurs appareils</b><span>Rejoignez la même partie depuis plusieurs appareils : chacun voit les grilles et garde la sienne devant soi.</span></div>
+      </div>
+    </div>
+
+    <div class="wc-actions" id="wc-actions"></div>
+
+    <div class="wc-theme">
+      <span>Apparence</span>
+      <div class="seg" id="wc-seg">
+        <button data-theme-set="system">Système</button>
+        <button data-theme-set="light">Clair</button>
+        <button data-theme-set="dark">Sombre</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <header>
     <div class="brand">
@@ -2344,6 +2420,59 @@
   });
   document.getElementById("onl-leave").addEventListener("click", promptLeave);
 
+  /* ---------------- page d'accueil ---------------- */
+  var welcomeEl = document.getElementById("welcome");
+
+  function renderWelcomeActions(){
+    var tp = themePref();
+    document.getElementById("wc-seg").querySelectorAll("button").forEach(function(b){
+      b.classList.toggle("on", b.getAttribute("data-theme-set") === tp);
+    });
+    var h = "";
+    if(gameStarted()){
+      h += "<button class='wc-btn primary' data-wc='resume'>Reprendre la partie</button>"+
+           "<div class='wc-row'>"+
+             "<button class='wc-btn ghost' data-wc='new'>Nouvelle partie</button>"+
+             "<button class='wc-btn ghost' data-wc='join'>Rejoindre</button>"+
+           "</div>";
+    } else {
+      h += "<button class='wc-btn primary' data-wc='new'>Nouvelle partie</button>"+
+           "<div class='wc-row'>"+
+             "<button class='wc-btn ghost' data-wc='quick'>Partie rapide</button>"+
+             "<button class='wc-btn ghost' data-wc='join'>Rejoindre</button>"+
+           "</div>";
+    }
+    document.getElementById("wc-actions").innerHTML = h;
+  }
+  function showWelcome(){ renderWelcomeActions(); welcomeEl.hidden = false; }
+  function hideWelcome(){ welcomeEl.hidden = true; }
+
+  function freshLocalGame(){
+    state = { players:[ mk("Joueur 1"), mk("Joueur 2") ], config: defaultConfig() };
+    save(); render();
+  }
+
+  welcomeEl.addEventListener("click", function(e){
+    var tb = e.target.closest("[data-theme-set]");
+    if(tb){ applyTheme(tb.getAttribute("data-theme-set")); renderWelcomeActions(); return; }
+    var b = e.target.closest("[data-wc]"); if(!b) return;
+    var a = b.getAttribute("data-wc");
+    if(a === "resume"){ hideWelcome(); return; }
+    if(a === "quick"){ freshLocalGame(); hideWelcome(); return; }
+    if(a === "new"){
+      if(gameStarted() && !confirm("Démarrer une nouvelle partie ? La partie en cours sera remplacée.")) return;
+      freshLocalGame(); hideWelcome();
+      open(mPlayers); renderPlayers();   /* réglage des joueurs (avant l'assistant de démarrage complet) */
+      return;
+    }
+    if(a === "join"){
+      var code = (prompt("Entrez le code de la partie :") || "").toUpperCase().match(GID_RE);
+      if(!code) return;
+      hideWelcome(); askJoin(code[0]);
+      return;
+    }
+  });
+
   /* ---------- Démarrage ---------- */
   render();
 
@@ -2369,8 +2498,11 @@
           if(!ps[OL.myPid]) Object.keys(ps).forEach(function(k){ if(ps[k].uid===a.uid) OL.myPid=k; });
           applyData(r.body); persistSession(); subscribe(); scheduleRefresh(); unbusy();
         });
-      }).catch(function(){ teardown(); unbusy(); render(); });
+      }).catch(function(){ teardown(); unbusy(); render(); showWelcome(); });
+      return;
     }
+    /* cas local : on accueille le joueur */
+    showWelcome();
   })();
 })();
 </script>
