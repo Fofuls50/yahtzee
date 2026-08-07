@@ -940,10 +940,10 @@
   /* ---------------- colonnes ----------------
      Chaque joueur a un jeu de scores PAR colonne : p.s[colId][catId].
      Par défaut une seule colonne « Libre » → comportement identique à avant. */
-  /* En ligne, on force une seule colonne tant que la config n'est pas synchronisée
-     (évite que les appareils affichent des grilles différentes). Multi-colonnes = local. */
+  /* La config (dont les colonnes) est fixée par l'hôte à la création de la partie en
+     ligne et synchronisée à tous via Firebase (voir createGame/applyData) — même
+     grille pour tout le monde, en ligne comme en local. */
   function columns(){
-    if(OL) return defaultConfig().columns;
     var c = cfg().columns; return (c && c.length) ? c : defaultConfig().columns;
   }
   var COLDEFS = [
@@ -2507,6 +2507,9 @@
   function applyData(data){
     OL.data = data || {};
     OL.host = OL.data.host || OL.host;
+    /* règles + colonnes de la partie : fixées par l'hôte à la création, partagées à tous */
+    state.config = OL.data.config || {};
+    migrateConfig(state);
     var ps = OL.data.players || {};
     state.players = Object.keys(ps).map(function(pid){
       var p = ps[pid] || {};
@@ -2601,7 +2604,7 @@
              myPid:pid, host:a.uid, data:null, es:null, connected:false,
              archived: false };
       var game = { host:a.uid, createdAt:Date.now(), expireAt:Date.now()+30*86400000,
-                   status:"playing", players:{}, turn:{ order:[], pos:0 } };
+                   status:"playing", players:{}, turn:{ order:[], pos:0 }, config:cfg() };
       game.players[pid] = { name:name, uid:a.uid, order:0 };
       return dbPut("games/"+gid, game).then(function(res){
         if(!res.ok) throw new Error("write");
