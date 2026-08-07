@@ -919,7 +919,7 @@
   ensureTurn(state);
   var adminMode = false;
   function canAdmin(){ return !OL || amHost(); }              /* qui peut corriger */
-  function turnLockActive(){ return !OL && state.players.length > 1; }  /* online : étape suivante */
+  function turnLockActive(){ return state.players.length > 1; }  /* local ET en ligne */
   function playerById(id){
     for(var i=0;i<state.players.length;i++) if(state.players[i].id === id) return state.players[i];
     return null;
@@ -939,13 +939,15 @@
     if(t.order.indexOf(p.id) < 0){ t.order.push(p.id); if(t.order.length === n) t.pos = 0; }
     else t.pos = (t.pos + 1) % n;
   }
-  function turnSkip(){ var t=state.turn, n=state.players.length; if(!roundOne()){ t.pos=(t.pos+1)%n; save(); render(); } }
+  function turnSkip(){ var t=state.turn, n=state.players.length; if(!roundOne()){ t.pos=(t.pos+1)%n; persistTurn(); render(); } }
   function turnBack(){
     var t=state.turn, n=state.players.length;
     if(roundOne()){ if(t.order.length) t.order.pop(); }
     else t.pos = (t.pos - 1 + n) % n;
-    save(); render();
+    persistTurn(); render();
   }
+  /* persiste le tour : Firebase en ligne, localStorage en local */
+  function persistTurn(){ if(OL) pushTurn(); else save(); }
 
   /* ---------------- session en ligne ----------------
      OL vaut null en jeu local ; sinon c'est le contrôleur de la partie en ligne
@@ -1164,13 +1166,14 @@
     var byAdmin = adminMode && canAdmin();
     /* verrouillage par tour (hors admin, hors bonus Yam's) */
     if(!byAdmin && !isBonus && turnLockActive()){
+      if(OL && !canEdit(p)){ toast("Cette colonne n'est pas la vôtre."); return; }
       if(!isMyTurn(p)){
         var w = turnPlayer();
         toast(w ? "C'est au tour de " + w.name + " de jouer." : "C'est au tour d'un autre joueur.");
         return;
       }
       if(p.s[catId] !== undefined){
-        toast("Case déjà remplie — activez le mode organisateur pour la corriger.");
+        toast("Case déjà remplie — l'organisateur peut la corriger.");
         return;
       }
     }
@@ -1254,13 +1257,18 @@
     var isBonus = cur.cat === "__yb";
     var byAdmin = adminMode && canAdmin();
     var wasEmpty = isBonus ? !p.bonusYams : (p.s[cur.cat] === undefined);
+    var advanced = false;
     if(isBonus) p.bonusYams = v; else p.s[cur.cat] = v;
     if(!isBonus){
       p.corrected = p.corrected || {};
-      if(byAdmin) p.corrected[cur.cat] = true;                 /* case touchée par l'organisateur */
-      else if(wasEmpty && turnLockActive()) advanceTurn(p);    /* jeu normal : on passe la main */
+      if(byAdmin) p.corrected[cur.cat] = true;                          /* case touchée par l'organisateur */
+      else if(wasEmpty && turnLockActive()){ advanceTurn(p); advanced = true; }  /* jeu normal : on passe la main */
     }
-    if(OL) pushValue(p, cur.cat, v);
+    if(OL){
+      if(advanced) pushTurn();                                 /* le tour d'abord, pour la cohérence */
+      pushValue(p, cur.cat, v);
+      if(!isBonus && byAdmin) pushCorrected(p, cur.cat, true);
+    }
     save(); close(); render();
   });
 
@@ -1275,7 +1283,7 @@
     }
     if(isBonus) p.bonusYams = 0;
     else { delete p.s[cur.cat]; if(p.corrected) delete p.corrected[cur.cat]; }
-    if(OL) pushValue(p, cur.cat, null);
+    if(OL){ pushValue(p, cur.cat, null); if(!isBonus) pushCorrected(p, cur.cat, false); }
     save(); close(); render();
   });
 
@@ -2335,8 +2343,13 @@
     state.players = Object.keys(ps).map(function(pid){
       var p = ps[pid] || {};
       return { id:pid, name:(p.name||"?"), uid:p.uid||null, order:(typeof p.order==="number"?p.order:0),
-               s:p.s||{}, bonusYams:p.yb||0 };
+               s:p.s||{}, bonusYams:p.yb||0, corrected:p.corrected||{} };
     }).sort(function(a,b){ return a.order-b.order || (a.id<b.id?-1:1); });
+    /* tour de jeu partagé (Firebase peut renvoyer l'ordre en tableau ou en objet) */
+    var t = OL.data.turn, ord = [];
+    if(t && t.order) ord = Array.isArray(t.order) ? t.order.slice()
+                          : Object.keys(t.order).sort(function(a,b){return a-b;}).map(function(k){ return t.order[k]; });
+    state.turn = { order: ord, pos: (t && typeof t.pos==="number") ? t.pos : 0 };
     render();
     if(mOnline.classList.contains("on")) renderOnlineModal();
     if(mPlayers.classList.contains("on")) close();
@@ -2397,6 +2410,7 @@
     teardown();
     state = load() || { players:[ mk("Joueur 1"), mk("Joueur 2") ] };
     state.archived = false;
+    adminMode = false;
     close();
     render();
   }
@@ -2417,7 +2431,7 @@
              myPid:pid, host:a.uid, data:null, es:null, connected:false,
              archived: false };
       var game = { host:a.uid, createdAt:Date.now(), expireAt:Date.now()+30*86400000,
-                   status:"playing", players:{} };
+                   status:"playing", players:{}, turn:{ order:[], pos:0 } };
       game.players[pid] = { name:name, uid:a.uid, order:0 };
       return dbPut("games/"+gid, game).then(function(res){
         if(!res.ok) throw new Error("write");
@@ -2476,6 +2490,12 @@
     else { (v===null) ? dbDel(base+"/s/"+cat) : dbPut(base+"/s/"+cat, v); }
   }
   function pushName(p){ if(OL) dbPut("games/"+OL.gid+"/players/"+p.id+"/name", (p.name||"").trim()||"?"); }
+  function pushTurn(){ if(OL) dbPut("games/"+OL.gid+"/turn", { order:state.turn.order, pos:state.turn.pos }); }
+  function pushCorrected(p, cat, val){
+    if(!OL) return;
+    var pth = "games/"+OL.gid+"/players/"+p.id+"/corrected/"+cat;
+    val ? dbPut(pth, true) : dbDel(pth);
+  }
 
   function addNoPhone(){
     if(!amHost()) return;

@@ -47,6 +47,9 @@ Onglet **Règles**, remplacer tout le contenu par ceci, puis **Publier** :
         ".read": "auth != null",
         ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid)",
 
+        "turn": {
+          ".write": "auth != null"
+        },
         "players": {
           "$pid": {
             ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)"
@@ -67,6 +70,8 @@ Ce que ces règles appliquent, et qui correspond à ton choix « chacun la sienn
 | Un joueur qui arrive | créer sa colonne, mais pas s'emparer de celle d'un autre |
 | L'hôte | tout modifier : corriger une erreur, tenir la colonne d'un enfant sans téléphone |
 | Une personne sans le lien de la partie | rien : l'identifiant de partie est imprévisible |
+
+> **Note (tour de jeu).** Le bloc `turn` autorise **tout joueur connecté** à mettre à jour le pointeur « à qui c'est le tour » — c'est nécessaire pour que la main passe automatiquement quand n'importe quel joueur inscrit une case. Les scores et les colonnes restent protégés comme ci-dessus. Si tu avais déjà publié les anciennes règles, **republie** cette version, sinon le passage de tour ne se synchronisera pas entre les appareils.
 
 ## 5. Récupérer la configuration
 
