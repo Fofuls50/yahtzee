@@ -85,16 +85,18 @@ l'écart avec le jeu parfait est de l'ordre de quelques points sur une partie.
 
 ## Publier gratuitement sur GitHub Pages
 
-1. Créer un dépôt **public** sur GitHub, par exemple `yamtzee`.
-2. Y déposer `index.html` (bouton *Add file → Upload files*, ou en ligne de commande ci-dessous).
-3. Aller dans **Settings → Pages**.
-4. Sous *Build and deployment* → *Source*, choisir **Deploy from a branch**, puis la branche `main` et le dossier `/ (root)`. Cliquer sur **Save**.
-5. Attendre ~1 minute : le site est en ligne sur `https://<ton-pseudo>.github.io/yamtzee/`
+Le code est hébergé sur [github.com/Fofuls50/yahtzee](https://github.com/Fofuls50/yahtzee).
+Pour activer (ou vérifier) la publication :
 
-En ligne de commande, depuis ce dossier :
+1. Sur le repo → **Settings → Pages**.
+2. Sous *Build and deployment* → *Source*, choisir **Deploy from a branch**, puis la branche
+   `main` et le dossier `/ (root)`. Cliquer sur **Save**.
+3. Attendre ~1 minute : le site est en ligne sur `https://fofuls50.github.io/yahtzee/`
+
+Pour publier une mise à jour, depuis ce dossier :
 
 ```bash
-git init && git add . && git commit -m "Feuille de score Yam's" && git branch -M main && git remote add origin https://github.com/<ton-pseudo>/yamtzee.git && git push -u origin main
+git add . && git commit -m "message" && git push
 ```
 
 ## Joueurs habituels
