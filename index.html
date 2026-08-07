@@ -616,7 +616,8 @@
   .tb-sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
   .tb-sw.on i{left:18px}
   th.turncol,td.turncol{background:color-mix(in srgb,var(--accent-soft) 60%,transparent)!important}
-  .cell .corr{color:var(--gold);font-size:11px;vertical-align:super;margin-left:1px;font-weight:800}
+  .cell .cw{display:inline-flex;align-items:baseline;gap:1px}
+  .cell .corr{color:var(--gold);font-size:11px;font-weight:800}
 </style>
 </head>
 <body>
@@ -992,7 +993,7 @@
   function render(){
     ensureTurn(state);
     var pl = state.players, n = pl.length;
-    var addable = !OL && n < MAX;          /* colonne « + » : jamais en ligne */
+    var addable = !OL && n < MAX && !gameStarted();   /* « + » : jamais en ligne ni en cours de partie */
     var tp = turnLockActive() ? turnPlayer() : null;   /* joueur dont c'est le tour (2e tour+) */
     var h = "";
 
@@ -1106,7 +1107,7 @@
                 (isMe(p)?" mecol":"")+(ed?"":" locked");
       var txt = !filled ? "–" : (v===0 ? "✕" : v);
       var star = (filled && p.corrected && p.corrected[c.id]) ? "<span class='corr'>✱</span>" : "";
-      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'>"+txt+star+"</button></td>";
+      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
     });
     if(addable) h += "<td></td>";
     return h + "</tr>";
@@ -1311,15 +1312,19 @@
 
   /* --- gestion des joueurs --- */
   function addPlayer(){
-    if(state.players.length >= MAX) return;
+    if(state.players.length >= MAX || gameStarted()) return;   /* pas de nouveau joueur en cours de partie */
     state.players.push(mk("Joueur " + (state.players.length+1)));
     render(); renderPlayers();
   }
 
   function renderPlayers(){
     var n = state.players.length, known = knownNames();
+    var started = gameStarted();
+    var locked = started;   /* on ne modifie pas la liste des joueurs une fois la partie commencée */
 
-    document.getElementById("mp-sub").textContent = "2 à 6 joueurs sur ce téléphone";
+    document.getElementById("mp-sub").textContent = started
+      ? "Partie en cours — liste des joueurs verrouillée"
+      : "1 à 6 joueurs sur ce téléphone";
     document.getElementById("mp-online").innerHTML =
       "<button class='btn onl-go' id='mp-create'>"+
         "<span class='onl-ic'>🌐</span>Créer une partie en ligne"+
@@ -1346,11 +1351,11 @@
       return "<div class='prow'>"+
         "<input value='"+esc(p.name)+"' maxlength='12' data-pname='"+i+"' list='known-names' "+
           "autocomplete='off' autocapitalize='words'>"+
-        "<button class='rm' data-rm='"+i+"' aria-label='Retirer' "+(n<=2?"style='opacity:.25;pointer-events:none'":"")+">"+
+        "<button class='rm' data-rm='"+i+"' aria-label='Retirer' "+((locked||n<=1)?"style='opacity:.25;pointer-events:none'":"")+">"+
           "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>"+
         "</button></div>" + chips;
     }).join("");
-    document.getElementById("mp-add").style.display = n>=MAX ? "none" : "";
+    document.getElementById("mp-add").style.display = (n>=MAX || locked) ? "none" : "";
   }
 
   document.getElementById("mp-online").addEventListener("click", function(e){
@@ -1388,7 +1393,7 @@
       return;
     }
     var b = e.target.closest("[data-rm]"); if(!b) return;
-    if(state.players.length <= 2) return;
+    if(gameStarted() || state.players.length <= 1) return;
     state.players.splice(+b.getAttribute("data-rm"),1);
     render(); renderPlayers();
   });
@@ -2498,12 +2503,12 @@
   }
 
   function addNoPhone(){
-    if(!amHost()) return;
+    if(!amHost() || gameStarted()) return;   /* pas de nouveau joueur en cours de partie */
     var pid = "np"+Math.random().toString(36).slice(2,8);
     dbPut("games/"+OL.gid+"/players/"+pid, { name:"Joueur "+(state.players.length+1), order:state.players.length });
   }
   function removeOnline(pid){
-    if(!amHost() || pid===OL.myPid) return;
+    if(!amHost() || pid===OL.myPid || gameStarted()) return;   /* retrait interdit une fois commencé */
     if(confirm("Retirer ce joueur de la partie ?")) dbDel("games/"+OL.gid+"/players/"+pid);
   }
 
@@ -2529,10 +2534,10 @@
   /* ---------- Panneau en ligne (QR + roster) ---------- */
   function renderOnlineModal(){
     if(!OL) return;
-    var url = joinURL();
+    var url = joinURL(), started = gameStarted();
     var roster = state.players.map(function(p){
       var tag = isMe(p) ? "moi" : (!p.uid ? "sans téléphone" : "");
-      var rm = (amHost() && !isMe(p)) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
+      var rm = (amHost() && !isMe(p) && !started) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
       return "<div class='onl-p'><span class='onl-pn'>"+esc(p.name)+
         (tag?"<span class='onl-ptag'>"+tag+"</span>":"")+"</span>"+
         "<span class='onl-pt'>"+grand(p)+"</span>"+rm+"</div>";
@@ -2545,7 +2550,7 @@
         (navigator.share ? "<button class='btn onl-go' data-onl='share'>Envoyer le lien</button>" : "")+
         "<button class='btn onl-alt' data-onl='copy'>Copier le lien</button></div>"+
       "<div class='onl-roster'><div class='onl-rt'>Joueurs ("+state.players.length+")</div>"+roster+
-        (amHost()?"<button class='onl-add' data-onl='addnp'>＋ Joueur sans téléphone</button>":"")+
+        ((amHost() && !started)?"<button class='onl-add' data-onl='addnp'>＋ Joueur sans téléphone</button>":"")+
       "</div>"+
       "<textarea class='code-box' id='onl-url' readonly>"+esc(url)+"</textarea>";
   }
