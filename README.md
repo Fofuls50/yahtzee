@@ -16,6 +16,32 @@ Un seul fichier `index.html`, aucune dépendance, aucun serveur : tout tourne da
 - Thème clair / sombre selon les réglages du téléphone
 - Compatible Safari iOS et Chrome Android
 
+## Lancer une partie
+
+Depuis l'accueil, **Nouvelle partie** ouvre un assistant en trois écrans — une question
+par écran, avec un retour possible à tout moment :
+
+1. **Comment jouez-vous ?** *Sur cet appareil* (une seule feuille, aucun réseau) ou
+   *Chacun son téléphone* (partie en ligne, créée immédiatement).
+2. **Qui joue ?** En local, la liste des noms avec rappel des joueurs habituels. En ligne,
+   c'est le **salon** : code de partie, QR code, bouton de partage et la liste des joueurs
+   qui se remplit en direct au fur et à mesure des connexions.
+3. **Quelles règles ?** *Classique* ou *Française*, chacune résumée en deux lignes. Un lien
+   **Personnaliser…** — et lui seul — révèle les colonnes de jeu et les montants de bonus :
+   un débutant ne les voit jamais.
+
+Puis **Commencer la partie**. C'est ce moment, et pas le premier score inscrit, qui fige
+les règles et la liste des joueurs. En ligne, seul l'organisateur dispose du bouton ; les
+autres voient « En attente du lancement par l'organisateur » et basculent automatiquement
+sur la feuille au top départ.
+
+**Partie rapide** (accueil) court-circuite tout : 2 joueurs sur cet appareil, règles
+classiques, la feuille s'ouvre directement.
+
+**Rejoindre** (accueil) demande le code de la partie dans un champ prévu pour — majuscules
+automatiques, collage accepté — puis le prénom. Le plus simple reste de viser le QR code
+avec l'appareil photo : le lien ouvre l'application directement sur la bonne partie.
+
 ## Jouer en ligne, chacun sur son téléphone
 
 Deux façons de jouer :
@@ -23,19 +49,19 @@ Deux façons de jouer :
 - **En local** (par défaut) : un seul téléphone tient la feuille de toute la table. Rien
   n'est envoyé sur Internet, aucun compte, fonctionne hors connexion.
 - **En ligne** : chaque joueur a sa feuille sur son propre téléphone et voit les scores
-  des autres se remplir en direct.
+  des autres se remplir en direct. **Aucun compte n'est nécessaire.**
 
-Pour lancer une partie en ligne : **Joueurs** (icône silhouettes) → **Créer une partie en
-ligne**. Un QR code s'affiche ; les autres le scannent avec l'appareil photo de leur
-téléphone et sont amenés directement sur la partie. Ils saisissent leur nom et jouent —
-**aucun compte n'est nécessaire**.
+Les deux se mélangent : **n'importe quel appareil** de la partie en ligne peut ajouter des
+joueurs supplémentaires depuis le salon (« ＋ Joueur sur mon téléphone »). Un parent tient
+ainsi sa feuille et celle de son enfant ; lui seul peut les écrire, tout le monde les voit.
 
 - Chacun ne modifie que **sa** colonne. L'organisateur ne fait pas exception : pour écrire
   chez un autre joueur connecté, il doit activer **Organiser** dans le bandeau de tour
   (les cases qu'il touche sont alors marquées ✱). Sans ce garde-fou, il remplissait sans
   le vouloir la case du joueur dont c'était le tour.
-- L'organisateur peut ajouter un **joueur sans téléphone** (un enfant par exemple) et tenir
-  sa colonne : celle-là est éditable en permanence, personne d'autre ne la tient.
+- Chaque appareil peut tenir **plusieurs feuilles** : la sienne et celles des joueurs sans
+  téléphone assis à côté. Elles sont éditables en permanence par leur porteur, puisque
+  personne d'autre ne les tient.
 - **Absences** : chaque appareil se signale toutes les 25 secondes. Un joueur silencieux
   depuis plus d'une minute apparaît « hors ligne » (dans la feuille, le bandeau et la liste
   des joueurs) et tout le monde en est averti ; celui qui touche **Quitter** apparaît
@@ -188,6 +214,13 @@ Deux options dans les **Réglages** (roue dentée), actives par défaut et propr
 
   La hauteur totale étant affine en hauteur de ligne, deux mesures suffisent à calculer
   directement la valeur qui remplit l'écran : pas de tâtonnement, pas de scintillement.
+- **Fenêtres (réglages, statistiques, assistant, joueurs).** Elles se ferment de trois
+  façons : la croix en haut à droite, le bouton en bas, ou en tirant la poignée vers le bas
+  comme dans une application. Chaque réglage n'affiche que son titre et son interrupteur ;
+  le **?** déplie l'explication détaillée à la demande.
+- **Retour à l'accueil uniquement par le logo** en haut à gauche. Le « tirer pour
+  rafraîchir » du navigateur est neutralisé (`overscroll-behavior`), et un rechargement en
+  cours de partie rouvre directement la feuille au lieu de l'écran d'accueil.
 - **Garder l'écran allumé.** Utilise l'API *Wake Lock* : le téléphone ne se met plus en
   veille tant que la feuille est affichée, ce qui évite de le rallumer à chaque tour. Le
   verrou est relâché dès que l'onglet passe en arrière-plan et repris au retour. Nécessite

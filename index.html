@@ -74,7 +74,9 @@
   }
 
   *,*::before,*::after{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
+  /* overscroll-behavior sur la racine : sans lui, un glissement vers le bas déclenche
+     le « tirer pour rafraîchir » du navigateur, qui recharge la page en pleine partie. */
+  html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
   body{
     margin:0;
     background:var(--paper);
@@ -230,12 +232,26 @@
     max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
     border-top:1px solid var(--line)
   }
-  .modal.on{transform:translateY(0)}
+  /* --dy : décalage pendant le glissement de fermeture (0 au repos) */
+  .modal.on{transform:translateY(var(--dy,0px))}
   @media(min-width:560px){
     .modal{left:50%;right:auto;bottom:24px;width:460px;transform:translate(-50%,140%);border-radius:24px;border:1px solid var(--line)}
-    .modal.on{transform:translate(-50%,0)}
+    .modal.on{transform:translate(-50%,var(--dy,0px))}
   }
-  .grabber{width:42px;height:5px;border-radius:3px;background:var(--line-strong);margin:2px auto 14px;opacity:.7}
+  .modal.dragging{transition:none}
+  /* barre de tête : reste visible même quand le contenu défile, d'où le sticky */
+  .m-top{
+    position:sticky;top:0;z-index:6;background:var(--card);
+    margin:-10px -18px 0;padding:10px 18px 0;border-radius:24px 24px 0 0
+  }
+  .grabber{width:42px;height:5px;border-radius:3px;background:var(--line-strong);margin:4px auto 16px;opacity:.7}
+  .m-x{
+    position:absolute;top:2px;right:8px;width:34px;height:34px;border-radius:50%;
+    display:grid;place-items:center;background:var(--paper);border:1px solid var(--line);
+    color:var(--muted);font-size:13px;line-height:1;transition:all .15s ease
+  }
+  .m-x:hover{color:var(--ink);border-color:var(--line-strong)}
+  .m-x:active{transform:scale(.9)}
   .m-title{font-family:'Outfit',sans-serif;font-size:19px;font-weight:700;letter-spacing:-.01em;text-align:center}
   .m-sub{font-size:13px;color:var(--muted);text-align:center;margin:3px 0 16px;font-weight:500}
 
@@ -342,6 +358,12 @@
   .onl-ptag{font-size:10px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);
     border-radius:999px;padding:2px 8px;margin-left:8px;text-transform:uppercase;letter-spacing:.05em}
   .onl-pt{flex:none;font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  /* nom modifiable dans le salon (mes feuilles uniquement) */
+  .onl-pin{
+    flex:1;min-width:0;font-weight:700;font-size:14.5px;background:var(--paper);
+    border:1px solid var(--line);border-radius:9px;padding:7px 9px
+  }
+  .onl-pin:focus{outline:none;border-color:var(--accent)}
   .onl-rm{flex:none;width:32px;height:32px;border-radius:9px;color:var(--muted);
     background:var(--paper);border:1px solid var(--line);font-size:14px;transition:all .15s ease}
   .onl-rm:hover{color:#e11d48;border-color:#e11d48}
@@ -404,7 +426,20 @@
   .set:first-child{border-top:0;padding-top:2px}
   .set-b{flex:1;min-width:0}
   .set-n{font-size:14.5px;font-weight:600;letter-spacing:-.01em}
-  .set-d{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:5px}
+  .set-h{display:flex;align-items:center;gap:8px}
+  .set-q{
+    flex:none;width:21px;height:21px;border-radius:50%;border:1px solid var(--line-strong);
+    color:var(--muted);font-size:12px;font-weight:800;display:grid;place-items:center;
+    line-height:1;transition:all .15s ease
+  }
+  .set-q:hover{color:var(--ink);border-color:var(--ink)}
+  .set-q.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .set-tag{font-size:12px;font-weight:500;color:var(--muted);margin-top:3px}
+  .set-tag .ok{color:var(--accent)}
+  .set-tag .ko{color:#e11d48}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .set-tag .ko{color:#fb7185}}
+  :root[data-theme="dark"] .set-tag .ko{color:#fb7185}
+  .set-d{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:7px}
   .set-s{
     font-size:12px;line-height:1.5;margin-top:9px;padding:8px 10px;border-radius:10px;
     background:var(--paper);border:1px solid var(--line)
@@ -627,6 +662,8 @@
   .wc-btn.primary{background:linear-gradient(135deg,var(--accent),#0d9488);color:#fff;
     box-shadow:0 8px 22px -6px rgba(20,184,166,.5)}
   .wc-btn.ghost{background:var(--card);border:1px solid var(--line-strong);color:var(--accent-ink)}
+  .wc-note{font-size:12px;color:var(--muted);line-height:1.55;margin:12px 2px 0;text-align:left}
+  .wc-note b{color:var(--ink);font-weight:700}
   .wc-row{display:flex;gap:10px}
   .wc-row .wc-btn{flex:1;min-width:0}
   .wc-theme{margin-top:26px;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -687,6 +724,63 @@
   /* dernier recours avant de réduire le texte : on retire le rappel de règle sous
      chaque nom de combinaison (il reste accessible en touchant le nom) */
   body.fit.tight .cat-sub{display:none}
+
+  /* ---------- assistant de démarrage ----------
+     Plein écran comme l'accueil : une question par étape, l'en-tête et le bouton
+     d'action restent fixes, seul le corps défile. */
+  .wiz{
+    position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 14px)
+  }
+  .wiz[hidden]{display:none}
+  .wiz-card{width:100%;max-width:460px;margin:0 auto;display:flex;flex-direction:column;min-height:0}
+  .wiz-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex:none}
+  .wiz-nav{
+    width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+    color:var(--muted);display:grid;place-items:center;font-size:15px;flex:none
+  }
+  .wiz-nav:hover{color:var(--ink);border-color:var(--line-strong)}
+  .wiz-nav.hide{visibility:hidden}
+  .wiz-dots{flex:1;display:flex;justify-content:center;align-items:center;gap:6px}
+  .wiz-dot{width:7px;height:7px;border-radius:50%;background:var(--line-strong);transition:all .2s ease}
+  .wiz-dot.on{background:var(--accent);width:22px;border-radius:4px}
+  .wiz-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .wiz-h{font-family:'Outfit',sans-serif;font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 5px}
+  .wiz-s{font-size:13.5px;color:var(--muted);margin:0 0 18px;line-height:1.5}
+  .wiz-foot{flex:none;padding-top:14px}
+  .wiz-wait{
+    text-align:center;font-size:13.5px;color:var(--muted);font-weight:600;
+    padding:15px;background:var(--card);border:1px dashed var(--line-strong);border-radius:15px
+  }
+  /* grande carte cliquable (mode de jeu, jeu de règles) */
+  .big{
+    display:flex;gap:13px;text-align:left;width:100%;align-items:flex-start;
+    background:var(--card);border:1.5px solid var(--line);border-radius:17px;
+    padding:15px;margin-bottom:11px;transition:all .15s ease
+  }
+  .big:active{transform:scale(.985)}
+  .big.on{border-color:var(--accent);background:var(--accent-soft)}
+  .big-i{
+    flex:none;width:42px;height:42px;border-radius:12px;background:var(--accent-soft);
+    color:var(--accent);display:grid;place-items:center;font-size:20px
+  }
+  .big.on .big-i{background:var(--accent);color:#fff}
+  .big-i svg{width:22px;height:22px}
+  .big-t{min-width:0}
+  .big-t b{display:block;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .big-t span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
+  .wiz-more{
+    width:100%;text-align:center;font-size:13px;font-weight:700;color:var(--accent);
+    padding:12px;border-radius:12px
+  }
+  /* saisie du code de partie */
+  .code-in{
+    width:100%;height:58px;border-radius:15px;border:1.5px solid var(--line-strong);
+    background:var(--paper);color:var(--ink);text-align:center;font-family:'Outfit',sans-serif;
+    font-size:26px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;margin-bottom:12px
+  }
+  .code-in:focus{outline:none;border-color:var(--accent)}
+  .code-in::placeholder{letter-spacing:.1em;font-size:16px;font-weight:600;color:var(--line-strong)}
 </style>
 </head>
 <body>
@@ -700,26 +794,7 @@
       </svg>
     </div>
     <h1 class="wc-title">Yam's</h1>
-    <p class="wc-tag">Votre feuille de score, en solo comme à plusieurs.</p>
-
-    <div class="wc-modes">
-      <div class="wc-mode">
-        <div class="wc-mi">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="10" y1="18" x2="14" y2="18"/>
-          </svg>
-        </div>
-        <div><b>Sur un seul appareil</b><span>Notez les scores de tous les joueurs sur ce téléphone, cette tablette ou cet ordinateur.</span></div>
-      </div>
-      <div class="wc-mode">
-        <div class="wc-mi">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="2" y="4" width="13" height="9" rx="1.5"/><line x1="5" y1="20" x2="12" y2="20"/><line x1="8" y1="15" x2="8" y2="20"/><rect x="17" y="9" width="5" height="11" rx="1.5"/>
-          </svg>
-        </div>
-        <div><b>À plusieurs appareils</b><span>Rejoignez la même partie depuis plusieurs appareils : chacun voit les grilles et garde la sienne devant soi.</span></div>
-      </div>
-    </div>
+    <p class="wc-tag">Votre feuille de score : sur un seul appareil, ou chacun sur son téléphone.</p>
 
     <div class="wc-actions" id="wc-actions"></div>
 
@@ -731,6 +806,18 @@
         <button data-theme-set="dark">Sombre</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="wiz" id="setup" hidden>
+  <div class="wiz-card">
+    <div class="wiz-head">
+      <button class="wiz-nav" id="wz-back" aria-label="Étape précédente">←</button>
+      <div class="wiz-dots" id="wz-dots"></div>
+      <button class="wiz-nav" id="wz-quit" aria-label="Annuler">✕</button>
+    </div>
+    <div class="wiz-body" id="wz-body"></div>
+    <div class="wiz-foot" id="wz-foot"></div>
   </div>
 </div>
 <div class="wrap">
@@ -804,7 +891,10 @@
 <div id="toast" class="toast"></div>
 
 <div class="modal" id="modal-score" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title" id="ms-title"></div>
   <div class="m-sub" id="ms-sub"></div>
   <div class="rule" id="ms-rule"></div>
@@ -816,7 +906,10 @@
 </div>
 
 <div class="modal" id="modal-online" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title">Partie en ligne</div>
   <div class="m-sub">Faites scanner ce code aux autres joueurs</div>
   <div id="onl-body"></div>
@@ -827,9 +920,16 @@
 </div>
 
 <div class="modal" id="modal-join" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
-  <div class="m-title">Rejoindre la partie</div>
-  <div class="m-sub">Partie <b id="gj-code"></b> — quel est votre nom ?</div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
+  <div class="m-title">Rejoindre une partie</div>
+  <div class="m-sub" id="gj-sub"></div>
+  <input id="gj-gid" class="code-in" maxlength="10" placeholder="Code à 6 lettres"
+         autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">
+  <p class="onl-hint" id="gj-scan">Vous pouvez aussi ouvrir l'appareil photo de votre téléphone et
+     viser le QR code affiché par l'organisateur : la partie s'ouvre toute seule.</p>
   <input id="gj-name" class="gj-in" maxlength="12" placeholder="Votre nom"
          autocomplete="off" autocapitalize="words" list="known-names">
   <div class="m-actions">
@@ -839,7 +939,10 @@
 </div>
 
 <div class="modal" id="modal-set" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title">Réglages</div>
   <div class="m-sub">Ces choix ne concernent que cet appareil</div>
   <div id="set-body"></div>
@@ -849,7 +952,10 @@
 </div>
 
 <div class="modal" id="modal-stats" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title">Statistiques</div>
   <div class="m-sub" id="st-sub"></div>
   <div id="st-body"></div>
@@ -862,7 +968,10 @@
 </div>
 
 <div class="modal" id="modal-adv" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title">Assistant de jeu</div>
   <div class="m-sub">Saisissez vos dés : je calcule le meilleur coup</div>
   <div class="seg" id="adv-players"></div>
@@ -886,7 +995,10 @@
 </div>
 
 <div class="modal" id="modal-players" role="dialog" aria-modal="true">
-  <div class="grabber"></div>
+  <div class="m-top">
+    <div class="grabber"></div>
+    <button class="m-x" data-close aria-label="Fermer">✕</button>
+  </div>
   <div class="m-title">Joueurs</div>
   <div class="m-sub" id="mp-sub"></div>
   <div id="mp-online"></div>
@@ -1113,7 +1225,11 @@
      chaque joueur portant en plus .uid (son identité) et .id (sa clé Firebase). */
   var OL = null;
   function online(){ return !!OL; }
-  function isMe(p){ return !!(OL && p.uid && p.uid === OL.uid); }
+  /* Un appareil peut tenir plusieurs feuilles : la sienne (myPid) et celles qu'il a
+     ajoutées pour des joueurs sans téléphone. isMine = « je peux l'écrire », isMe =
+     « c'est ma feuille à moi », celle qui porte l'étiquette et donne mon nom. */
+  function isMine(p){ return !!(OL && p.uid && p.uid === OL.uid); }
+  function isMe(p){ return !!(OL && p.id === OL.myPid); }
   function amHost(){ return !!(OL && OL.uid === OL.host); }
   /* qui peut modifier une colonne :
      - la sienne, toujours ;
@@ -1138,11 +1254,19 @@
   function lastSeenMax(){
     return state.players.reduce(function(m,q){ return q.seen > m ? q.seen : m; }, 0);
   }
+  /* La présence appartient à l'APPAREIL, pas à la feuille : seule la feuille principale
+     signe, mais si son porteur décroche, les feuilles qu'il tient décrochent avec lui. */
+  function ownerSeen(uid){
+    return state.players.reduce(function(m,q){ return (q.uid === uid && q.seen > m) ? q.seen : m; }, 0);
+  }
+  function ownerLeft(uid){
+    return state.players.some(function(q){ return q.uid === uid && q.left; });
+  }
   function pOffline(p){
-    if(!OL || isMe(p)) return false;
-    if(p.left) return true;
-    if(!p.uid || !p.seen) return false;   /* sans téléphone, ou client d'avant cette version */
-    return lastSeenMax() - p.seen > OFF_MS;
+    if(!OL || !p.uid || isMine(p)) return false;   /* sans téléphone, ou tenue par moi */
+    if(ownerLeft(p.uid)) return true;
+    var s = ownerSeen(p.uid);
+    return s > 0 && lastSeenMax() - s > OFF_MS;    /* s === 0 : client d'avant cette version */
   }
   function offCount(){ return state.players.filter(pOffline).length; }
   function save(){
@@ -1217,7 +1341,7 @@
     if(multi){
       h += "<tr><th class='cat-h' rowspan='2'></th>";
       pl.forEach(function(p,i){
-        var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
+        var hcls = (isMine(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
         h += "<th colspan='"+nc+"'"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+">"+nameInput(p,i)+"</th>";
       });
       if(addable) h += "<th rowspan='2'><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
@@ -1227,7 +1351,7 @@
     } else {
       h += "<tr><th class='cat-h'></th>";
       pl.forEach(function(p,i){
-        var hcls = (isMe(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
+        var hcls = (isMine(p)?"mecol ":"")+(tp && tp.id===p.id ? "turncol":"");
         h += "<th"+(hcls.trim()?" class='"+hcls.trim()+"'":"")+">"+nameInput(p,i)+"</th>";
       });
       if(addable) h += "<th><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
@@ -1244,7 +1368,7 @@
          catLabel({ label:"Bonus", sub:"à partir de "+ub.threshold+" points" })+"</th>";
     pl.forEach(function(p){ cols.forEach(function(col,ci){
       var s = sumUpCol(p,col.id), b = bonusUpCol(p,col.id);
-      var cls = (isMe(p)?"mecol":"") + pendCls(ci,nc);
+      var cls = (isMine(p)?"mecol":"") + pendCls(ci,nc);
       h += "<td"+(cls.trim()?" class='"+cls.trim()+"'":"")+">"+(b?"+"+ub.value:"—")+
            "<span class='bonus-track'>"+s+"/"+ub.threshold+"</span></td>";
     }); });
@@ -1259,7 +1383,7 @@
          catLabel({ label:"Bonus Yam's", sub:"+"+yb+" par Yam's en plus" })+"</th>";
     pl.forEach(function(p,i){ cols.forEach(function(col,ci){
       var v = colBonus(p, col.id), ed = canEdit(p);
-      var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
+      var cls = "cell"+(v?"":" empty")+(isMine(p)?" mecol":"")+(ed?"":" locked");
       h += "<td class='"+pendCls(ci,nc).trim()+"'><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='__yb'>"+
            (v? "+"+(v*yb) : "–")+"</button></td>";
     }); });
@@ -1282,7 +1406,7 @@
     pl.forEach(function(p){ cols.forEach(function(col,ci){
       var gc = grandCol(p,col.id);
       var lead = (!multi && n>1 && gc===best && gc>0) ? " lead" : "";
-      h += "<td class='"+(isMe(p)?"mecol":"")+lead+pendCls(ci,nc)+"'>"+gc+"</td>";
+      h += "<td class='"+(isMine(p)?"mecol":"")+lead+pendCls(ci,nc)+"'>"+gc+"</td>";
     }); });
     if(addable) h += "<td></td>";
     h += "</tr>";
@@ -1290,7 +1414,7 @@
       h += "<tr class='total grand'><th>Total joueur</th>";
       pl.forEach(function(p){
         var g = grand(p), lead = (n>1 && g===best && g>0) ? " lead" : "";
-        h += "<td colspan='"+nc+"' class='"+(isMe(p)?"mecol":"")+lead+" pend'>"+g+"</td>";
+        h += "<td colspan='"+nc+"' class='"+(isMine(p)?"mecol":"")+lead+" pend'>"+g+"</td>";
       });
       if(addable) h += "<td></td>";
       h += "</tr>";
@@ -1390,7 +1514,7 @@
         var seqNext = (!admin && ed && !noSeq) ? nextSeqCat(p, col.id) : null;  /* prochaine case autorisée (Desc/Mont) */
         var seqLocked = !filled && seqNext && seqNext !== c.id;
         var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
-                  (isMe(p)?" mecol":"")+(ed?"":" locked")+(seqLocked?" seqlock":"");
+                  (isMine(p)?" mecol":"")+(ed?"":" locked")+(seqLocked?" seqlock":"");
         var txt = seqLocked ? "🔒" : (!filled ? "–" : (v===0 ? "✕" : v));
         var star = (filled && colCorr(p, col.id, c.id)) ? "<span class='corr'>✱</span>" : "";
         h += "<td class='"+pendCls(ci,nc).trim()+"'><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
@@ -1412,7 +1536,7 @@
   function calcRow(label, pl, addable, fnCol){
     var h = "<tr class='calc'><th>"+label+"</th>", nc = columns().length;
     pl.forEach(function(p){ columns().forEach(function(col,ci){
-      var cls = (isMe(p)?"mecol":"") + pendCls(ci,nc);
+      var cls = (isMine(p)?"mecol":"") + pendCls(ci,nc);
       h += "<td"+(cls.trim()?" class='"+cls.trim()+"'":"")+">"+fnCol(p, col.id)+"</td>";
     }); });
     if(addable) h += "<td></td>";
@@ -1443,13 +1567,44 @@
 
   function open(el){ openEl = el; backdrop.classList.add("on"); el.classList.add("on"); }
   function close(){
-    if(openEl) openEl.classList.remove("on");
-    backdrop.classList.remove("on"); openEl = null;
+    if(openEl){
+      openEl.classList.remove("on"); openEl.classList.remove("dragging");
+      openEl.style.removeProperty("--dy");   /* sinon un glissement interrompu resterait figé */
+    }
+    backdrop.classList.remove("on"); openEl = null; drag = null;
   }
   backdrop.addEventListener("click", close);
   document.addEventListener("click", function(e){
     if(e.target.closest("[data-close]")) close();
   });
+
+  /* Fermeture au glissement vers le bas, comme une feuille d'application.
+     Le geste ne part que de la barre de tête (la poignée) : le reste de la fenêtre
+     garde son défilement et ses boutons intacts, sans arbitrage hasardeux. */
+  var drag = null;
+  document.addEventListener("touchstart", function(e){
+    if(!openEl || e.touches.length !== 1) return;
+    if(!e.target.closest(".m-top") || !openEl.contains(e.target)) return;
+    drag = { y0:e.touches[0].clientY, dy:0, t0:Date.now() };
+    openEl.classList.add("dragging");
+  }, { passive:true });
+  document.addEventListener("touchmove", function(e){
+    if(!drag || !openEl) return;
+    drag.dy = Math.max(0, e.touches[0].clientY - drag.y0);
+    openEl.style.setProperty("--dy", drag.dy + "px");
+    e.preventDefault();               /* pas de défilement de la page derrière */
+  }, { passive:false });
+  function dragEnd(){
+    if(!drag || !openEl) return;
+    var vite = drag.dy > 24 && (Date.now() - drag.t0) < 260;   /* petit coup sec */
+    var loin = drag.dy > 90;
+    openEl.classList.remove("dragging");
+    openEl.style.removeProperty("--dy");
+    drag = null;
+    if(vite || loin) close();
+  }
+  document.addEventListener("touchend", dragEnd);
+  document.addEventListener("touchcancel", dragEnd);
 
   /* --- saisie d'un score --- */
   var cur = null;
@@ -1675,16 +1830,12 @@
   }
 
   var PRESET_OPTS = [ {v:"classic",label:"Classique"}, {v:"french",label:"Française"}, {v:"custom",label:"Personnalisé"} ];
-  function renderRules(){
-    var c = cfg(), locked = gameStarted();
-    var preset = c.preset || "classic";
-    var h = "<div class='rulespick"+(locked?" locked":"")+"'>"+
-      "<div class='colpick-t'>Règles"+(locked?" (verrouillé)":"")+"</div>"+
-      "<div class='seg'>"+
-        segButtons("preset", PRESET_OPTS, preset)+
-      "</div>";
-    if(preset === "custom"){
-      h += "<div class='rc'>"+
+
+  /* Réglages fins des règles. Sortis de renderRules() pour que l'assistant de démarrage
+     puisse les afficher tels quels derrière son lien « Personnaliser… ». */
+  function rulesCustomHTML(locked){
+    var c = cfg();
+    return "<div class='rc'>"+
         "<label class='rc-chk'><input type='checkbox' id='rc-french'"+(c.frenchScore?" checked":"")+(locked?" disabled":"")+
           "> Yam's et Carré à la française (bonus fixe + somme des dés)</label>"+
         "<label class='rc-chk'><input type='checkbox' id='rc-pm'"+(c.plusMinus?" checked":"")+(locked?" disabled":"")+
@@ -1695,6 +1846,34 @@
           "<label>Bonus Yam's suppl.<input type='number' id='rc-yb' value='"+c.yamsBonus+"' min='0' max='500'"+(locked?" disabled":"")+"></label>"+
           (c.frenchScore ? "<label>Bonus Carré<input type='number' id='rc-cb' value='"+c.carreBonus+"' min='0' max='300'"+(locked?" disabled":"")+"></label>" : "")+
         "</div></div>";
+  }
+  /* applique une saisie des champs ci-dessus ; renvoie true si quelque chose a changé */
+  function rulesCustomApply(t){
+    var c = cfg();
+    /* toucher un de ces réglages fait sortir du préset : on ne prétend plus jouer
+       « à la française » si l'un de ses barèmes a été modifié à la main */
+    if(t.id && t.id.indexOf("rc-") === 0) c.preset = "custom";
+    if(t.id === "rc-french"){ c.frenchScore = t.checked; }
+    else if(t.id === "rc-pm"){ c.plusMinus = t.checked; }
+    else if(t.id === "rc-ubt"){ c.upperBonus.threshold = Math.max(1, numIn(t.value, 63)); }
+    else if(t.id === "rc-ubv"){ c.upperBonus.value = Math.max(0, numIn(t.value, 0)); }
+    else if(t.id === "rc-yb"){ c.yamsBonus = Math.max(0, numIn(t.value, 0)); }
+    else if(t.id === "rc-cb"){ c.carreBonus = Math.max(0, numIn(t.value, 0)); }
+    else return false;
+    save(); render();
+    return true;
+  }
+
+  function renderRules(){
+    var c = cfg(), locked = gameStarted();
+    var preset = c.preset || "classic";
+    var h = "<div class='rulespick"+(locked?" locked":"")+"'>"+
+      "<div class='colpick-t'>Règles"+(locked?" (verrouillé)":"")+"</div>"+
+      "<div class='seg'>"+
+        segButtons("preset", PRESET_OPTS, preset)+
+      "</div>";
+    if(preset === "custom"){
+      h += rulesCustomHTML(locked);
     }
     h += "</div>";
     document.getElementById("mp-rules").innerHTML = h;
@@ -1710,19 +1889,37 @@
 
   document.getElementById("mp-rules").addEventListener("change", function(e){
     if(gameStarted()) return;
-    var c = cfg(), t = e.target;
-    if(t.id === "rc-french"){ c.frenchScore = t.checked; }
-    else if(t.id === "rc-pm"){ c.plusMinus = t.checked; }
-    else if(t.id === "rc-ubt"){ c.upperBonus.threshold = Math.max(1, numIn(t.value, 63)); }
-    else if(t.id === "rc-ubv"){ c.upperBonus.value = Math.max(0, numIn(t.value, 0)); }
-    else if(t.id === "rc-yb"){ c.yamsBonus = Math.max(0, numIn(t.value, 0)); }
-    else if(t.id === "rc-cb"){ c.carreBonus = Math.max(0, numIn(t.value, 0)); }
-    else return;
-    save(); render(); renderRules();
+    if(rulesCustomApply(e.target)) renderRules();
   });
 
+  /* sélecteur de colonnes, partagé avec l'assistant de démarrage */
+  function colsPickHTML(locked){
+    return "<div class='colpick"+(locked?" locked":"")+"'>"+
+        "<div class='colpick-t'>Colonnes de jeu"+(locked?" (verrouillé)":"")+"</div>"+
+        "<div class='colpick-row'>"+
+          COLDEFS.map(function(cd){
+            var on = cfg().columns.some(function(c){ return c.id===cd.id; });
+            return "<label class='colchip"+(on?" on":"")+"'>"+
+              "<input type='checkbox' data-colid='"+cd.id+"'"+(on?" checked":"")+(locked?" disabled":"")+">"+
+              "<span class='ar'>"+cd.short+"</span>"+cd.label+"</label>";
+          }).join("")+
+        "</div>"+
+      "</div>";
+  }
+  /* relit les cases cochées dans `scope` et en fait la liste des colonnes */
+  function colsApply(scope){
+    var checked = {};
+    scope.querySelectorAll("[data-colid]").forEach(function(x){
+      if(x.checked) checked[x.getAttribute("data-colid")] = true;
+    });
+    var chosen = COLDEFS.filter(function(cd){ return checked[cd.id]; });
+    if(!chosen.length) chosen = [COLDEFS[0]];              /* au moins une colonne */
+    cfg().columns = chosen.map(function(cd){ return { id:cd.id, type:cd.type, label:cd.label, short:cd.short }; });
+    save(); render();
+  }
+
   function renderPlayers(){
-    var n = state.players.length, known = knownNames();
+    var n = state.players.length;
     var started = gameStarted();
     var locked = started;   /* on ne modifie pas la liste des joueurs une fois la partie commencée */
 
@@ -1736,19 +1933,15 @@
       "</button>"+
       "<p class='onl-hint'>Chacun sur son téléphone, scores en direct. "+
       "Les autres rejoignent en scannant un QR code.</p>";
-    document.getElementById("mp-cols").innerHTML =
-      "<div class='colpick"+(locked?" locked":"")+"'>"+
-        "<div class='colpick-t'>Colonnes de jeu"+(locked?" (verrouillé)":"")+"</div>"+
-        "<div class='colpick-row'>"+
-          COLDEFS.map(function(cd){
-            var on = cfg().columns.some(function(c){ return c.id===cd.id; });
-            return "<label class='colchip"+(on?" on":"")+"'>"+
-              "<input type='checkbox' data-colid='"+cd.id+"'"+(on?" checked":"")+(locked?" disabled":"")+">"+
-              "<span class='ar'>"+cd.short+"</span>"+cd.label+"</label>";
-          }).join("")+
-        "</div>"+
-      "</div>";
-    document.getElementById("mp-list").innerHTML = state.players.map(function(p,i){
+    document.getElementById("mp-cols").innerHTML = colsPickHTML(locked);
+    document.getElementById("mp-list").innerHTML = playerRowsHTML(locked);
+    document.getElementById("mp-add").style.display = (n>=MAX || locked) ? "none" : "";
+  }
+
+  /* lignes « nom + retirer » des joueurs locaux, avec les pastilles de noms connus */
+  function playerRowsHTML(locked){
+    var n = state.players.length, known = knownNames();
+    return state.players.map(function(p,i){
       /* on ne propose pas un nom déjà porté par un autre joueur de la partie */
       var pris = state.players.filter(function(q,j){ return j !== i; })
                               .map(function(q){ return (q.name||"").trim(); });
@@ -1772,7 +1965,40 @@
           "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>"+
         "</button></div>" + chips;
     }).join("");
-    document.getElementById("mp-add").style.display = (n>=MAX || locked) ? "none" : "";
+  }
+
+  /* Branche une liste de noms (fenêtre Joueurs ou assistant) : saisie, pastilles,
+     retrait. `redraw` redessine le conteneur d'où vient l'événement. */
+  function bindPlayerRows(el, redraw){
+    /* Les pastilles du joueur touché s'affichent ; on ne les masque jamais au blur,
+       sinon le clic sur une pastille serait perdu. */
+    el.addEventListener("focusin", function(e){
+      var f = e.target.closest("[data-pname]"); if(!f) return;
+      var i = f.getAttribute("data-pname");
+      el.querySelectorAll(".chips").forEach(function(c){ c.style.display = "none"; });
+      var box = el.querySelector("#chips-" + i);
+      if(box) box.style.display = "";
+    });
+    el.addEventListener("input", function(e){
+      var f = e.target.closest("[data-pname]"); if(!f) return;
+      state.players[+f.getAttribute("data-pname")].name = f.value;
+      render();
+    });
+    el.addEventListener("click", function(e){
+      var c = e.target.closest("[data-pick]");
+      if(c){
+        var i = +c.getAttribute("data-pick"), nm = c.getAttribute("data-nm");
+        state.players[i].name = nm;
+        var inp = el.querySelector("[data-pname='"+i+"']");
+        if(inp) inp.value = nm;
+        render(); redraw();
+        return;
+      }
+      var b = e.target.closest("[data-rm]"); if(!b) return;
+      if(gameStarted() || state.players.length <= 1) return;
+      state.players.splice(+b.getAttribute("data-rm"),1);
+      render(); redraw();
+    });
   }
 
   document.getElementById("mp-online").addEventListener("click", function(e){
@@ -1781,24 +2007,7 @@
 
   document.getElementById("mp-cols").addEventListener("change", function(e){
     if(!e.target.closest("[data-colid]") || gameStarted()) return;
-    var checked = {};
-    document.querySelectorAll("#mp-cols [data-colid]").forEach(function(x){
-      if(x.checked) checked[x.getAttribute("data-colid")] = true;
-    });
-    var chosen = COLDEFS.filter(function(cd){ return checked[cd.id]; });
-    if(!chosen.length) chosen = [COLDEFS[0]];              /* au moins une colonne */
-    cfg().columns = chosen.map(function(cd){ return { id:cd.id, type:cd.type, label:cd.label, short:cd.short }; });
-    save(); render(); renderPlayers();
-  });
-
-  /* Les pastilles du joueur touché s'affichent ; on ne les masque jamais au blur,
-     sinon le clic sur une pastille serait perdu. */
-  document.getElementById("mp-list").addEventListener("focusin", function(e){
-    var f = e.target.closest("[data-pname]"); if(!f) return;
-    var i = f.getAttribute("data-pname");
-    this.querySelectorAll(".chips").forEach(function(c){ c.style.display = "none"; });
-    var box = this.querySelector("#chips-" + i);
-    if(box) box.style.display = "";
+    colsApply(this); renderPlayers();
   });
 
   document.getElementById("btn-players").addEventListener("click", function(){
@@ -1806,26 +2015,7 @@
     else { renderPlayers(); open(mPlayers); }
   });
   document.getElementById("mp-add").addEventListener("click", addPlayer);
-  document.getElementById("mp-list").addEventListener("input", function(e){
-    var f = e.target.closest("[data-pname]"); if(!f) return;
-    state.players[+f.getAttribute("data-pname")].name = f.value;
-    render();
-  });
-  document.getElementById("mp-list").addEventListener("click", function(e){
-    var c = e.target.closest("[data-pick]");
-    if(c){
-      var i = +c.getAttribute("data-pick"), nm = c.getAttribute("data-nm");
-      state.players[i].name = nm;
-      var inp = this.querySelector("[data-pname='"+i+"']");
-      if(inp) inp.value = nm;
-      render(); renderPlayers();
-      return;
-    }
-    var b = e.target.closest("[data-rm]"); if(!b) return;
-    if(gameStarted() || state.players.length <= 1) return;
-    state.players.splice(+b.getAttribute("data-rm"),1);
-    render(); renderPlayers();
-  });
+  bindPlayerRows(document.getElementById("mp-list"), renderPlayers);
 
   /* --- nouvelle partie --- */
   document.getElementById("btn-new").addEventListener("click", function(){
@@ -2318,7 +2508,11 @@
     });
   }
   function gameComplete(){ return state.players.length > 0 && state.players.every(sheetFull); }
+  /* « commencée » = l'organisateur a appuyé sur Commencer (state.started, partagé en
+     ligne), ou à défaut une case est déjà remplie — ce qui couvre les parties d'avant
+     le bouton et le cas où quelqu'un saisit un score sans passer par l'assistant. */
   function gameStarted(){
+    if(state.started) return true;
     return state.players.some(function(p){
       return columns().some(function(col){
         var any = CATS.some(function(c){ return colVal(p,col.id,c.id) !== undefined; }) || colBonus(p,col.id);
@@ -2344,6 +2538,7 @@
   function resetGame(){
     state.players.forEach(function(p){ p.s = {}; p.bonusYams = {}; p.corrected = {}; });
     state.archived = false;
+    state.started = false;   /* les règles et la liste des joueurs redeviennent modifiables */
     state.turn = { order:[], pos:0 };
     adminMode = false;
     render();
@@ -2618,15 +2813,35 @@
   document.addEventListener("click", wakeApply);
   wakeApply();
 
+  /* Une ligne de réglage : seuls le titre, l'état en un mot et l'interrupteur sont
+     visibles. L'explication — souvent longue — n'apparaît que si l'utilisateur touche
+     le « ? », ce qui garde l'écran court sans rien perdre. */
+  var setHelp = {};
+  function setRow(id, titre, aide, etat, sw){
+    var ouvert = !!setHelp[id];
+    return "<div class='set'><div class='set-b'>"+
+        "<div class='set-h'><span class='set-n'>"+titre+"</span>"+
+          "<button class='set-q"+(ouvert?" on":"")+"' data-help='"+id+"' "+
+            "aria-expanded='"+(ouvert?"true":"false")+"' aria-label='Explication'>?</button></div>"+
+        (etat ? "<div class='set-tag'>"+etat+"</div>" : "")+
+        (ouvert ? "<div class='set-d'>"+aide+"</div>" : "")+
+      "</div>"+sw+"</div>";
+  }
+  function swBtn(id, on, dispo, label){
+    return "<button class='sw"+(on?" on":"")+(dispo?"":" off")+"' id='"+id+"' role='switch' "+
+      "aria-checked='"+(on?"true":"false")+"' aria-label='"+label+"'"+(dispo?"":" disabled")+"><i></i></button>";
+  }
+
   function renderSettings(){
     var tp = themePref();
     var pref = persistPref(), dispo = persistState !== "indisponible";
     var vouluActif = pref === "on", ask = lastAsk();
-    var statut, classe = "";
+    var statut, classe = "", court = "";
 
     if(!dispo){
       statut = "Ce navigateur ne propose pas cette option. Vos parties restent enregistrées "+
                "normalement, mais pensez à les exporter de temps en temps.";
+      court = "Non géré par ce navigateur";
     } else if(vouluActif && ask === false){
       /* Refus explicite : il prime sur persisted(), qui peut répondre « oui » à tort
          après un blocage temporaire. On ne prétend jamais que c'est actif. */
@@ -2635,18 +2850,22 @@
                "Pour revenir sur ce choix : touchez l'icône à gauche de l'adresse du site, "+
                "retirez l'autorisation « stockage persistant », puis réactivez l'option ici. "+
                "Tant que le blocage est en place, le navigateur ne repose plus la question.";
+      court = "<b class='ko'>Refusé par le navigateur</b>";
     } else if(vouluActif && persistState === "accorde"){
       statut = "Actif : le navigateur s'engage à conserver vos parties.";
       classe = " ok";
+      court = "<b class='ok'>Actif</b>";
     } else if(vouluActif){
       /* demandé, sans refus explicite : la plupart des navigateurs n'accordent la
          garantie qu'aux sites installés ou visités régulièrement */
       statut = "Demandé, mais votre navigateur ne l'a pas encore accordé. Il le fait "+
                "généralement une fois le site ajouté à l'écran d'accueil, ou après "+
                "quelques visites. Vos parties restent enregistrées entre-temps.";
+      court = "Demandé, en attente du navigateur";
     } else if(persistState === "accorde"){
       statut = "L'autorisation est déjà accordée et une page web ne peut pas la retirer. "+
                "Pour l'annuler, effacez les données du site dans les réglages de votre navigateur.";
+      court = "<b class='ok'>Déjà accordé</b>";
     } else if(pref === "off"){
       statut = "Désactivé : rien ne sera demandé. Vos parties restent enregistrées, mais "+
                "le navigateur peut les effacer après plusieurs semaines sans visite.";
@@ -2662,51 +2881,39 @@
           segButtons("theme-set", THEME_OPTS, tp)+
         "</div>"+
       "</div>"+
-      "<div class='set'><div class='set-b'>"+
-        "<div class='set-n'>Feuille sur un seul écran</div>"+
-        "<div class='set-d'>Réduit la feuille juste ce qu'il faut pour qu'elle tienne "+
-        "entièrement à l'écran, sans avoir à faire défiler la page. Sur un grand écran "+
-        "où tout tient déjà, rien ne change.<br><br>"+
-        "Avec beaucoup de joueurs ou de colonnes, la réduction s'arrête à la limite du "+
-        "lisible : la page redevient alors défilable.</div>"+
-      "</div>"+
-      "<button class='sw"+(fitPref()?" on":"")+"' id='sw-fit' role='switch' "+
-        "aria-checked='"+(fitPref()?"true":"false")+"' aria-label='Feuille sur un seul écran'><i></i></button>"+
-      "</div>"+
-      "<div class='set'><div class='set-b'>"+
-        "<div class='set-n'>Garder l'écran allumé</div>"+
-        "<div class='set-d'>Empêche le téléphone de se mettre en veille tant que la feuille "+
-        "de score est affichée — pratique pendant une partie, où l'on ne touche l'écran "+
-        "qu'entre deux tours. La veille reprend normalement dès que vous quittez la page.</div>"+
-        (wakeOk() ? "" : "<div class='set-s'>Ce navigateur ne propose pas cette option "+
-          "(sur iPhone, elle demande Safari 16.4 ou plus récent).</div>")+
-      "</div>"+
-      "<button class='sw"+(wakeOk() && wakePref() ? " on" : "")+(wakeOk() ? "" : " off")+"' id='sw-wake' "+
-        "role='switch' aria-checked='"+(wakeOk() && wakePref() ?"true":"false")+"' "+
-        "aria-label='Garder l&#39;écran allumé'"+(wakeOk() ? "" : " disabled")+"><i></i></button>"+
-      "</div>"+
-      "<div class='set'><div class='set-b'>"+
-        "<div class='set-n'>Conserver l'historique des parties</div>"+
-        "<div class='set-d'>Chaque partie terminée est enregistrée sur cet appareil : c'est "+
-        "ce qui alimente <b>l'historique et les statistiques</b> — victoires de chacun, "+
-        "scores moyens, records, bonus des 63.<br><br>"+
+      setRow("fit", "Feuille sur un seul écran",
+        "Réduit la feuille juste ce qu'il faut pour qu'elle tienne entièrement à l'écran, "+
+        "sans avoir à faire défiler la page. Sur un grand écran où tout tient déjà, rien ne change."+
+        "<br><br>Quand la place manque vraiment, les rappels de règle sous les noms de "+
+        "combinaisons s'effacent pour garder le texte lisible ; avec beaucoup de joueurs "+
+        "<i>et</i> plusieurs colonnes, la réduction s'arrête à la limite du lisible et la "+
+        "page redevient défilable.",
+        "", swBtn("sw-fit", fitPref(), true, "Feuille sur un seul écran"))+
+      setRow("wake", "Garder l'écran allumé",
+        "Empêche le téléphone de se mettre en veille tant que la feuille de score est "+
+        "affichée — pratique pendant une partie, où l'on ne touche l'écran qu'entre deux "+
+        "tours. La veille reprend normalement dès que vous quittez la page.",
+        wakeOk() ? "" : "Non géré par ce navigateur (iPhone : Safari 16.4 ou plus récent)",
+        swBtn("sw-wake", wakeOk() && wakePref(), wakeOk(), "Garder l&#39;écran allumé"))+
+      setRow("persist", "Conserver l'historique des parties",
+        "Chaque partie terminée est enregistrée sur cet appareil : c'est ce qui alimente "+
+        "<b>l'historique et les statistiques</b> — victoires de chacun, scores moyens, "+
+        "records, bonus des 63.<br><br>"+
         "Sans cette option, votre navigateur a le droit d'effacer ces parties tout seul "+
         "lors de ses nettoyages, et les statistiques repartent de zéro. En l'activant, vous "+
         "lui demandez de les conserver.<br><br>"+
         "Une petite fenêtre d'autorisation peut alors s'afficher : elle vient de votre "+
         "navigateur, pas d'un serveur. <b>Rien n'est envoyé sur Internet</b>, tout reste "+
-        "sur cet appareil.</div>"+
-        "<div class='set-s"+classe+"'>"+statut+"</div>"+
-      "</div>"+
-      "<button class='sw"+(vouluActif ? " on" : "")+(dispo ? "" : " off")+"' id='sw-persist' "+
-        "role='switch' aria-checked='"+(vouluActif?"true":"false")+"' "+
-        "aria-label='Stockage durable'"+(dispo ? "" : " disabled")+"><i></i></button>"+
-      "</div>";
+        "sur cet appareil."+
+        "<div class='set-s"+classe+"'>"+statut+"</div>",
+        court, swBtn("sw-persist", vouluActif, dispo, "Stockage durable"));
   }
 
   document.getElementById("set-body").addEventListener("click", function(e){
     var tb = e.target.closest("[data-theme-set]");
     if(tb){ applyTheme(tb.getAttribute("data-theme-set")); renderSettings(); return; }
+    var hb = e.target.closest("[data-help]");
+    if(hb){ var k = hb.getAttribute("data-help"); setHelp[k] = !setHelp[k]; renderSettings(); return; }
     if(e.target.closest("#sw-fit")){
       try{ localStorage.setItem(FITKEY, fitPref() ? "off" : "on"); }catch(err){}
       renderSettings(); fitSheet(); return;
@@ -2946,6 +3153,7 @@
     /* règles + colonnes de la partie : fixées par l'hôte à la création, partagées à tous */
     state.config = OL.data.config || {};
     migrateConfig(state);
+    state.started = !!OL.data.started;   /* top départ donné par l'organisateur */
     var ps = OL.data.players || {};
     state.players = Object.keys(ps).map(function(pid){
       var p = ps[pid] || {};
@@ -2960,7 +3168,7 @@
 
     /* Les battements de présence arrivent toutes les 25 s par joueur : on ne redessine
        que si quelque chose de visible a changé (scores, noms, tour, règles, présence). */
-    var sig = JSON.stringify([ state.config, state.turn, state.players.map(function(p){
+    var sig = JSON.stringify([ state.config, state.turn, state.started, state.players.map(function(p){
       return [p.id, p.name, p.uid, p.order, p.s, p.bonusYams, p.corrected,
               p.left?1:0, pOffline(p)?1:0];
     }) ]);
@@ -2971,6 +3179,13 @@
     render();
     if(mOnline.classList.contains("on")) renderOnlineModal();
     if(mPlayers.classList.contains("on")) close();
+    /* le salon suit la partie en direct ; le top départ le referme chez tout le monde.
+       On ne le redessine pas pendant une saisie, sinon le champ perdrait le focus. */
+    if(wizOpen()){
+      var a = document.activeElement;
+      if(state.started) closeWizard();
+      else if(!(a && wzBody.contains(a) && a.tagName === "INPUT")) renderWizard();
+    }
   }
 
   /* met à jour une signature de présence sans recharger la partie ; on ne redessine
@@ -3078,7 +3293,10 @@
 
   /* ---------- Créer ---------- */
   function createGame(){
-    var name = (state.players[0] && (state.players[0].name||"").trim()) || "Moi";
+    /* l'organisateur crée la partie avant d'avoir saisi son nom : on évite « Joueur 1 »
+       en reprenant celui qu'il utilise d'habitude — il reste modifiable dans le salon */
+    var n0 = (state.players[0] && (state.players[0].name||"").trim()) || "";
+    var name = (!n0 || /^Joueur \d+$/.test(n0)) ? (knownNames()[0] || "Moi") : n0;
     busy("Création de la partie…");
     fbSignIn().then(function(a){
       var gid = newGid(), pid = "p"+a.uid.slice(0,12);
@@ -3086,25 +3304,32 @@
              myPid:pid, host:a.uid, data:null, es:null, connected:false,
              archived: false };
       var game = { host:a.uid, createdAt:Date.now(), expireAt:Date.now()+30*86400000,
-                   status:"playing", players:{}, turn:{ order:[], pos:0 }, config:cfg() };
+                   status:"playing", started:false, players:{}, turn:{ order:[], pos:0 }, config:cfg() };
       game.players[pid] = { name:name, uid:a.uid, order:0 };
       return dbPut("games/"+gid, game).then(function(res){
         if(!res.ok) throw new Error("write");
         persistSession(); applyData(game);
         subscribe(); scheduleRefresh(); startBeat();
-        unbusy(); close(); renderOnlineModal(); open(mOnline);
+        unbusy(); close(); openWizard("players");   /* le salon : QR + liste des arrivants */
       });
     }).catch(function(){ teardown(); unbusy(); alert("Impossible de créer la partie. Vérifiez votre connexion."); render(); });
   }
 
   /* ---------- Rejoindre ---------- */
+  /* gid connu (QR code ou lien) : on ne demande que le nom. Sinon on demande aussi
+     le code, sans passer par un prompt() du navigateur. */
   function askJoin(gid){
-    document.getElementById("gj-code").textContent = gid;
-    var inp = document.getElementById("gj-name");
+    var connu = !!gid, cin = document.getElementById("gj-gid"), inp = document.getElementById("gj-name");
+    mJoin.setAttribute("data-gid", gid || "");
+    cin.style.display = connu ? "none" : "";
+    document.getElementById("gj-scan").style.display = connu ? "none" : "";
+    document.getElementById("gj-sub").innerHTML = connu
+      ? "Partie <b>"+esc(gid)+"</b> — quel est votre nom ?"
+      : "Saisissez le code que l'organisateur vous a communiqué.";
+    cin.value = "";
     inp.value = (knownNames()[0] || "");
-    mJoin.setAttribute("data-gid", gid);
     open(mJoin);
-    setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 350);
+    setTimeout(function(){ try{ (connu ? inp : cin).focus(); }catch(e){} }, 350);
   }
 
   function joinGame(gid, name){
@@ -3135,7 +3360,11 @@
       render();
     });
   }
-  function afterJoin(){ persistSession(); subscribe(); scheduleRefresh(); startBeat(); unbusy(); close(); }
+  function afterJoin(){
+    persistSession(); subscribe(); scheduleRefresh(); startBeat(); unbusy(); close();
+    /* partie pas encore lancée : on attend dans le salon avec les autres */
+    if(!gameStarted()) openWizard("players"); else { closeWizard(); hideWelcome(); }
+  }
 
   /* ---------- Écritures ---------- */
   function pushValue(p, col, cat, v){
@@ -3173,17 +3402,22 @@
   }
   function stopBeat(){ if(OL && OL.hb){ clearInterval(OL.hb); OL.hb = null; } }
 
-  function addNoPhone(){
-    if(!amHost() || gameStarted()) return;   /* pas de nouveau joueur en cours de partie */
-    var pid = "np"+Math.random().toString(36).slice(2,8);
-    dbPut("games/"+OL.gid+"/players/"+pid, { name:"Joueur "+(state.players.length+1), order:state.players.length });
+  /* Chaque appareil peut tenir plusieurs feuilles : la sienne et celles des joueurs
+     assis à côté qui n'ont pas de téléphone. On les rattache à son uid — lui seul
+     pourra les écrire, tout le monde les voit. */
+  function addOnlinePlayer(){
+    if(!OL || gameStarted() || state.players.length >= MAX) return;
+    var pid = "p"+Math.random().toString(36).slice(2,10);
+    dbPut("games/"+OL.gid+"/players/"+pid,
+          { name:"Joueur "+(state.players.length+1), uid:OL.uid, order:state.players.length });
   }
   /* Retrait d'un joueur par l'organisateur. Autorisé aussi en cours de partie : c'est
      le seul recours quand quelqu'un s'en va sans revenir. On répare l'ordre du tour
      AVANT la suppression, sinon la main resterait bloquée sur un joueur absent. */
   function removeOnline(pid){
-    if(!amHost() || pid === OL.myPid) return;
+    if(!OL || pid === OL.myPid) return;
     var p = playerById(pid); if(!p) return;
+    if(!amHost() && !isMine(p)) return;   /* sinon : l'organisateur, ou mes propres feuilles */
     var started = gameStarted();
     if(!confirm(started
         ? "Retirer « "+p.name+" » de la partie en cours ?\n\nSa colonne et ses scores seront supprimés pour tout le monde, et le tour de jeu passera au joueur suivant."
@@ -3229,9 +3463,10 @@
     if(!OL) return;
     var url = joinURL(), started = gameStarted();
     var roster = state.players.map(function(p){
-      var off = pOffline(p);
-      var tag = isMe(p) ? "moi" : (p.left ? "a quitté" : (off ? "hors ligne" : (!p.uid ? "sans téléphone" : "")));
-      var rm = (amHost() && !isMe(p)) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
+      var off = pOffline(p), moi = isMine(p);
+      var tag = isMe(p) ? "moi"
+              : (p.left ? "a quitté" : (off ? "hors ligne" : (moi ? "sur mon téléphone" : "")));
+      var rm = ((amHost() || moi) && !isMe(p)) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
       return "<div class='onl-p'><span class='onl-pn'>"+esc(p.name)+
         (tag?"<span class='onl-ptag"+(off?" off":"")+"'>"+tag+"</span>":"")+"</span>"+
         "<span class='onl-pt'>"+grand(p)+"</span>"+rm+"</div>";
@@ -3244,7 +3479,7 @@
         (navigator.share ? "<button class='btn onl-go' data-onl='share'>Envoyer le lien</button>" : "")+
         "<button class='btn onl-alt' data-onl='copy'>Copier le lien</button></div>"+
       "<div class='onl-roster'><div class='onl-rt'>Joueurs ("+state.players.length+")</div>"+roster+
-        ((amHost() && !started)?"<button class='onl-add' data-onl='addnp'>＋ Joueur sans téléphone</button>":"")+
+        ((!started && state.players.length < MAX)?"<button class='onl-add' data-onl='addnp'>＋ Joueur sur mon téléphone</button>":"")+
         (amHost()?"<p class='onl-hint'>✕ retire un joueur de la partie — à utiliser si quelqu'un est parti "+
                   "en cours de route. Ses scores sont alors supprimés et le tour passe au suivant.</p>":"")+
       "</div>"+
@@ -3255,7 +3490,7 @@
     if(rm){ removeOnline(rm.getAttribute("data-rmpid")); return; }
     var b = e.target.closest("[data-onl]"); if(!b) return;
     var a = b.getAttribute("data-onl");
-    if(a==="addnp") addNoPhone();
+    if(a==="addnp") addOnlinePlayer();
     else if(a==="share" && navigator.share){ navigator.share({ title:"Partie de Yam's", url:joinURL() }).catch(function(){}); }
     else if(a==="copy"){
       var ta = document.getElementById("onl-url");
@@ -3270,12 +3505,22 @@
   /* validation du nom pour rejoindre */
   document.getElementById("gj-go").addEventListener("click", function(){
     var gid = mJoin.getAttribute("data-gid");
+    if(!gid){
+      var m = (document.getElementById("gj-gid").value || "").toUpperCase().match(GID_RE);
+      if(!m){ toast("Il manque le code de la partie."); return; }
+      gid = m[0];
+    }
     var name = document.getElementById("gj-name").value;
     close();
     joinGame(gid, name);
   });
-  document.getElementById("gj-name").addEventListener("keydown", function(e){
-    if(e.key === "Enter") document.getElementById("gj-go").click();
+  document.getElementById("gj-gid").addEventListener("input", function(){
+    var p = this.selectionStart;
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    try{ this.setSelectionRange(p, p); }catch(e){}
+  });
+  mJoin.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && e.target.tagName === "INPUT") document.getElementById("gj-go").click();
   });
   document.getElementById("onl-leave").addEventListener("click", promptLeave);
 
@@ -3293,13 +3538,16 @@
            "<div class='wc-row'>"+
              "<button class='wc-btn ghost' data-wc='new'>Nouvelle partie</button>"+
              "<button class='wc-btn ghost' data-wc='join'>Rejoindre</button>"+
-           "</div>";
+           "</div>"+
+           "<p class='wc-note'><b>Rejoindre</b> : entrer dans la partie en ligne de quelqu'un d'autre, avec son code.</p>";
     } else {
       h += "<button class='wc-btn primary' data-wc='new'>Nouvelle partie</button>"+
            "<div class='wc-row'>"+
              "<button class='wc-btn ghost' data-wc='quick'>Partie rapide</button>"+
              "<button class='wc-btn ghost' data-wc='join'>Rejoindre</button>"+
-           "</div>";
+           "</div>"+
+           "<p class='wc-note'><b>Partie rapide</b> : 2 joueurs sur cet appareil, règles classiques, sans rien régler.<br>"+
+           "<b>Rejoindre</b> : entrer dans la partie en ligne de quelqu'un d'autre, avec son code.</p>";
     }
     document.getElementById("wc-actions").innerHTML = h;
   }
@@ -3325,20 +3573,225 @@
     var b = e.target.closest("[data-wc]"); if(!b) return;
     var a = b.getAttribute("data-wc");
     if(a === "resume"){ hideWelcome(); return; }
-    if(a === "quick"){ freshLocalGame(); hideWelcome(); return; }
+    if(a === "quick"){ freshLocalGame(); state.started = true; save(); render(); hideWelcome(); return; }
     if(a === "new"){
       if(gameStarted() && !confirm("Démarrer une nouvelle partie ? La partie en cours sera remplacée.")) return;
-      freshLocalGame(); hideWelcome();
-      open(mPlayers); renderPlayers();   /* réglage des joueurs (avant l'assistant de démarrage complet) */
+      freshLocalGame(); hideWelcome(); openWizard("mode");
       return;
     }
-    if(a === "join"){
-      var code = (prompt("Entrez le code de la partie :") || "").toUpperCase().match(GID_RE);
-      if(!code) return;
-      hideWelcome(); askJoin(code[0]);
-      return;
+    if(a === "join"){ hideWelcome(); askJoin(null); return; }
+  });
+
+  /* ================= ASSISTANT DE DÉMARRAGE =================
+     Trois étapes, une question par écran : comment on joue, qui joue, quelles règles.
+     En ligne, l'étape « qui joue » devient le salon d'attente — le même écran pour
+     l'organisateur et pour les invités, code QR et liste des connectés au même endroit.
+     La partie ne démarre qu'au bouton « Commencer », qui verrouille règles et joueurs. */
+  var wizEl  = document.getElementById("setup");
+  var wzBody = document.getElementById("wz-body");
+  var wzFoot = document.getElementById("wz-foot");
+  var wz = { step:"mode", custom:false };
+
+  function wizOpen(){ return !wizEl.hidden; }
+  function openWizard(step){
+    wz.step = step || "mode";
+    wz.custom = false;
+    hideWelcome();
+    wizEl.hidden = false;
+    renderWizard();
+  }
+  function closeWizard(){ wizEl.hidden = true; }
+
+  function wizStepIndex(){ return wz.step === "mode" ? 0 : (wz.step === "players" ? 1 : 2); }
+
+  function renderWizard(){
+    if(!wizOpen()) return;
+    var i = wizStepIndex(), guest = !!OL && !amHost();
+    document.getElementById("wz-dots").innerHTML =
+      guest ? "" : [0,1,2].map(function(k){ return "<span class='wiz-dot"+(k===i?" on":"")+"'></span>"; }).join("");
+    document.getElementById("wz-back").classList.toggle("hide", i === 0);
+    wzBody.innerHTML = wz.step === "mode" ? wizModeHTML()
+                     : wz.step === "players" ? wizPlayersHTML()
+                     : wizRulesHTML();
+    wzFoot.innerHTML = wizFootHTML();
+  }
+
+  function wizModeHTML(){
+    return "<h2 class='wiz-h'>Comment jouez-vous ?</h2>"+
+      "<p class='wiz-s'>Vous pourrez mélanger les deux : même en ligne, un téléphone peut "+
+      "tenir la feuille de plusieurs joueurs assis à côté.</p>"+
+      "<button class='big' data-mode='local'><span class='big-i'>"+
+        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>"+
+        "<rect x='6' y='2' width='12' height='20' rx='2.5'/><line x1='10' y1='18' x2='14' y2='18'/></svg></span>"+
+        "<span class='big-t'><b>Sur cet appareil</b><span>Une seule feuille, que vous vous passez ou que vous "+
+        "remplissez pour tout le monde. Aucun réseau, rien ne sort de l'appareil.</span></span></button>"+
+      "<button class='big' data-mode='online'><span class='big-i'>"+
+        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>"+
+        "<rect x='2' y='4' width='13' height='9' rx='1.5'/><line x1='5' y1='20' x2='12' y2='20'/>"+
+        "<line x1='8' y1='15' x2='8' y2='20'/><rect x='17' y='9' width='5' height='11' rx='1.5'/></svg></span>"+
+        "<span class='big-t'><b>Chacun son téléphone</b><span>Les autres rejoignent en scannant un QR code. "+
+        "Chacun remplit sa propre colonne et voit les scores des autres en direct.</span></span></button>";
+  }
+
+  function wizPlayersHTML(){
+    if(OL) return salonHTML();
+    var n = state.players.length;
+    return "<h2 class='wiz-h'>Qui joue ?</h2>"+
+      "<p class='wiz-s'>Les joueurs autour de la table, dans l'ordre que vous voulez : "+
+      "c'est le premier tour qui fixera l'ordre de jeu.</p>"+
+      "<div class='plist' id='wz-list'>"+ playerRowsHTML(false) +"</div>"+
+      (n < MAX ? "<button class='onl-add' data-wzadd>＋ Ajouter un joueur</button>" : "");
+  }
+
+  /* Salon en ligne : code, QR, et la liste qui se remplit en direct. */
+  function salonHTML(){
+    var url = joinURL(), host = amHost();
+    var roster = state.players.map(function(p){
+      var off = pOffline(p), moi = isMine(p);
+      var tag = isMe(p) ? "moi" : (p.left ? "a quitté" : (off ? "hors ligne" : (moi ? "sur mon téléphone" : "")));
+      var rm = (host && !isMe(p)) || (moi && !isMe(p))
+        ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
+      var nom = moi
+        ? "<input class='onl-pin' value='"+esc(p.name)+"' maxlength='12' data-onlname='"+p.id+"' "+
+          "list='known-names' autocomplete='off' autocapitalize='words'>"
+        : "<span class='onl-pn'>"+esc(p.name)+"</span>";
+      return "<div class='onl-p'>"+nom+
+        (tag?"<span class='onl-ptag"+(off?" off":"")+"'>"+tag+"</span>":"")+rm+"</div>";
+    }).join("");
+
+    return "<h2 class='wiz-h'>"+(host ? "Salon de la partie" : "Vous êtes dans la partie")+"</h2>"+
+      "<p class='wiz-s'>"+(host
+        ? "Les autres joueurs visent ce QR code avec l'appareil photo de leur téléphone, "+
+          "ou saisissent le code. La liste se remplit toute seule."
+        : "Il ne reste qu'à attendre que l'organisateur lance la partie. En attendant, vous "+
+          "pouvez corriger votre nom et ajouter les joueurs assis à côté de vous.")+"</p>"+
+      "<div class='onl-code'>Code&nbsp;: <b>"+OL.gid+"</b></div>"+
+      "<div class='onl-qr'>"+qrSVG(url)+"</div>"+
+      "<div class='onl-share'>"+
+        (navigator.share ? "<button class='btn onl-go' data-onl='share'>Envoyer le lien</button>" : "")+
+        "<button class='btn onl-alt' data-onl='copy'>Copier le lien</button></div>"+
+      "<div class='onl-roster'><div class='onl-rt'>Dans la partie ("+state.players.length+")</div>"+
+        roster+
+        (state.players.length < MAX
+          ? "<button class='onl-add' data-wzaddonl>＋ Joueur sur mon téléphone</button>"
+          : "")+
+        "<p class='onl-hint'>Ajoutez ici les joueurs sans téléphone assis à côté de vous "+
+        "(un enfant par exemple) : vous tiendrez leur feuille pendant la partie, et tout "+
+        "le monde verra leurs scores."+
+        (host ? " La croix ✕ retire un joueur." : "")+"</p>"+
+      "</div>"+
+      "<textarea class='code-box' id='wz-url' readonly>"+esc(url)+"</textarea>";
+  }
+
+  function wizRulesHTML(){
+    var preset = cfg().preset || "classic";
+    var h = "<h2 class='wiz-h'>Quelles règles ?</h2>"+
+      "<p class='wiz-s'>Dans le doute, gardez les règles classiques : ce sont celles "+
+      "imprimées sur la plupart des feuilles de score.</p>"+
+      "<button class='big"+(preset==="classic"?" on":"")+"' data-wzpreset='classic'>"+
+        "<span class='big-i'>🎲</span><span class='big-t'><b>Classique</b>"+
+        "<span>Yam's à 50 points, Carré et Brelan à la somme des dés, bonus de 35 dès 63 en "+
+        "section haute. La règle internationale du Yahtzee.</span></span></button>"+
+      "<button class='big"+(preset==="french"?" on":"")+"' data-wzpreset='french'>"+
+        "<span class='big-i'>🇫🇷</span><span class='big-t'><b>Française</b>"+
+        "<span>Yam's à 50 + la somme des dés (55 à 80), Carré à 40 + les quatre dés, et les "+
+        "lignes Plus / Moins dont la différence s'ajoute au score.</span></span></button>"+
+      "<button class='wiz-more' data-wzcustom>"+(wz.custom ? "Masquer les réglages avancés" : "Personnaliser…")+"</button>";
+    if(wz.custom){
+      h += "<div id='wz-adv'>"+ colsPickHTML(false)+
+        "<p class='onl-hint'>Une colonne = une grille complète à remplir. <b>Libre</b> : dans "+
+        "l'ordre que vous voulez. <b>Descendante</b> et <b>Montante</b> imposent de remplir "+
+        "les cases de haut en bas ou de bas en haut. <b>Imposé</b> : l'ordre est annoncé à "+
+        "la table, l'application ne vérifie rien.</p>"+
+        rulesCustomHTML(false)+"</div>";
+    }
+    return h;
+  }
+
+  function wizFootHTML(){
+    if(wz.step === "mode") return "";
+    if(OL && !amHost())
+      return "<div class='wiz-wait'>En attente du lancement par l'organisateur…</div>";
+    if(wz.step === "players")
+      return "<button class='wc-btn primary' data-wznext>Continuer</button>";
+    return "<button class='wc-btn primary' data-wzstart>Commencer la partie</button>";
+  }
+
+  /* --- navigation --- */
+  document.getElementById("wz-back").addEventListener("click", function(){
+    if(wz.step === "rules"){ wz.step = "players"; renderWizard(); return; }
+    if(wz.step === "players"){
+      if(OL){
+        if(!confirm(amHost() ? "Annuler cette partie en ligne ?" : "Quitter cette partie ?")) return;
+        leaveGame();
+      }
+      wz.step = "mode"; renderWizard();
     }
   });
+  document.getElementById("wz-quit").addEventListener("click", function(){
+    if(OL && !confirm(amHost() ? "Annuler cette partie en ligne ?" : "Quitter cette partie ?")) return;
+    if(OL) leaveGame();
+    closeWizard(); showWelcome();
+  });
+
+  wzBody.addEventListener("click", function(e){
+    var m = e.target.closest("[data-mode]");
+    if(m){
+      if(m.getAttribute("data-mode") === "local"){ wz.step = "players"; renderWizard(); }
+      else createGame();      /* la création bascule elle-même sur le salon */
+      return;
+    }
+    if(e.target.closest("[data-wzadd]")){ addPlayer(); renderWizard(); return; }
+    if(e.target.closest("[data-wzaddonl]")){ addOnlinePlayer(); return; }
+    var rm = e.target.closest("[data-rmpid]");
+    if(rm){ removeOnline(rm.getAttribute("data-rmpid")); return; }
+    var pr = e.target.closest("[data-wzpreset]");
+    if(pr){ applyPreset(pr.getAttribute("data-wzpreset")); renderWizard(); return; }
+    if(e.target.closest("[data-wzcustom]")){ wz.custom = !wz.custom; renderWizard(); return; }
+    var ob = e.target.closest("[data-onl]");
+    if(ob){
+      var a = ob.getAttribute("data-onl");
+      if(a === "share" && navigator.share) navigator.share({ title:"Partie de Yam's", url:joinURL() }).catch(function(){});
+      else if(a === "copy"){
+        var ta = document.getElementById("wz-url");
+        if(navigator.clipboard && navigator.clipboard.writeText)
+          navigator.clipboard.writeText(joinURL()).then(function(){ ob.textContent = "Copié !"; }).catch(function(){ ta.select(); });
+        else ta.select();
+      }
+    }
+  });
+  wzBody.addEventListener("change", function(e){
+    var f = e.target.closest("[data-onlname]");
+    if(f){ var q = playerById(f.getAttribute("data-onlname")); if(q && isMine(q)) pushName(q); return; }
+    if(e.target.closest("[data-colid]")){ colsApply(this); renderWizard(); return; }
+    if(rulesCustomApply(e.target)) renderWizard();
+  });
+  /* le nom se met à jour localement à la frappe, mais n'est envoyé qu'une fois la
+     saisie terminée : sinon chaque lettre serait une écriture réseau */
+  wzBody.addEventListener("input", function(e){
+    var f = e.target.closest("[data-onlname]"); if(!f) return;
+    var p = playerById(f.getAttribute("data-onlname"));
+    if(p && isMine(p)){ p.name = f.value; render(); }
+  });
+  bindPlayerRows(wzBody, renderWizard);
+
+  wzFoot.addEventListener("click", function(e){
+    if(e.target.closest("[data-wznext]")){ wz.step = "rules"; renderWizard(); return; }
+    if(e.target.closest("[data-wzstart]")) startGame();
+  });
+
+  /* Départ officiel : c'est ce moment qui fige les règles et la liste des joueurs. */
+  function startGame(){
+    if(OL){
+      if(!amHost()) return;
+      state.started = true;
+      dbPut("games/"+OL.gid+"/started", true);
+    } else {
+      state.started = true;
+      save();
+    }
+    closeWizard(); render();
+  }
 
   /* ---------- Démarrage ---------- */
   render();
@@ -3364,12 +3817,15 @@
           var ps = r.body.players || {};
           if(!ps[OL.myPid]) Object.keys(ps).forEach(function(k){ if(ps[k].uid===a.uid) OL.myPid=k; });
           applyData(r.body); persistSession(); subscribe(); scheduleRefresh(); startBeat(); unbusy();
+          if(!gameStarted()) openWizard("players");   /* on retrouve le salon d'attente */
         });
       }).catch(function(){ teardown(); unbusy(); render(); showWelcome(); });
       return;
     }
-    /* cas local : on accueille le joueur */
-    showWelcome();
+    /* cas local : on n'accueille que s'il n'y a pas de partie en cours. Un rechargement
+       (glissement vers le bas, retour en avant-plan, plantage de l'onglet) ne doit jamais
+       ramener le joueur à l'accueil : on n'y revient que par l'icône en haut à gauche. */
+    if(!gameStarted()) showWelcome();
   })();
 })();
 </script>
