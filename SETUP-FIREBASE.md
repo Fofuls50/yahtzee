@@ -71,6 +71,11 @@ Ce que ces règles appliquent, et qui correspond à ton choix « chacun la sienn
 | L'hôte | tout modifier : corriger une erreur, tenir la colonne d'un enfant sans téléphone |
 | Une personne sans le lien de la partie | rien : l'identifiant de partie est imprévisible |
 
+> **Note (présence et retrait d'un joueur).** Aucune règle supplémentaire n'est nécessaire.
+> Chaque joueur écrit `seen` (sa signature de présence, horodatée par le serveur) et `left`
+> (drapeau posé quand il quitte) **dans son propre nœud**, ce que la règle `$pid` autorise
+> déjà. Le retrait d'un joueur par l'organisateur est couvert par la règle du `$gid`.
+
 > **Note (tour de jeu).** Le bloc `turn` autorise **tout joueur connecté** à mettre à jour le pointeur « à qui c'est le tour » — c'est nécessaire pour que la main passe automatiquement quand n'importe quel joueur inscrit une case. Les scores et les colonnes restent protégés comme ci-dessus. Si tu avais déjà publié les anciennes règles, **republie** cette version, sinon le passage de tour ne se synchronisera pas entre les appareils.
 
 ## 5. Récupérer la configuration

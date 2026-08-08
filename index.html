@@ -145,13 +145,15 @@
   .addcol{color:var(--accent);font-size:24px;font-weight:500;width:100%;height:100%;transition:transform .15s ease}
   .addcol:hover{transform:scale(1.15)}
 
+  /* --rowh : hauteur des lignes de saisie. Posée seulement par « feuille sur un seul
+     écran », qui resserre les lignes avant d'envisager de réduire le texte. */
   tbody th{
     position:sticky;left:0;z-index:2;background:var(--card);
     text-align:left;font-weight:600;font-size:13.5px;
-    padding:0 11px;height:52px;border-bottom:1px solid var(--line);
+    padding:0 11px;height:var(--rowh,52px);border-bottom:1px solid var(--line);
     border-right:1px solid var(--line);white-space:nowrap
   }
-  tbody td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);height:52px}
+  tbody td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);height:var(--rowh,52px)}
   tbody td:last-child,thead th:last-child{border-right:0}
   tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 
@@ -657,6 +659,34 @@
   th.turncol,td.turncol{background:color-mix(in srgb,var(--accent-soft) 60%,transparent)!important}
   .cell .cw{display:inline-flex;align-items:baseline;gap:1px}
   .cell .corr{color:var(--gold);font-size:11px;font-weight:800}
+
+  /* ---------- présence en ligne ---------- */
+  .metag.off{color:#e11d48}
+  .onl-ptag.off{color:#fff;background:#e11d48}
+  .onl-off{color:#e11d48}
+  .turn-b .tb-off{display:block;color:#e11d48;font-weight:600}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .metag.off,
+    :root:not([data-theme="light"]) .onl-off,
+    :root:not([data-theme="light"]) .turn-b .tb-off{color:#fb7185}
+  }
+  :root[data-theme="dark"] .metag.off,
+  :root[data-theme="dark"] .onl-off,
+  :root[data-theme="dark"] .turn-b .tb-off{color:#fb7185}
+
+  /* ---------- feuille sur un seul écran ----------
+     #fit est réduit d'un seul coup (texte compris) par une transformation CSS ;
+     #fit-outer reprend la hauteur réellement occupée pour que la page ne garde
+     pas la place de la feuille à taille normale. */
+  #fit{transform-origin:top left}
+  /* place récupérée autour de la feuille avant d'en réduire le contenu */
+  body.fit .foot{display:none}
+  body.fit .wrap{padding-top:8px}
+  body.fit header{margin-bottom:10px}
+  body.fit .turn-b{margin-bottom:8px}
+  /* dernier recours avant de réduire le texte : on retire le rappel de règle sous
+     chaque nom de combinaison (il reste accessible en touchant le nom) */
+  body.fit.tight .cat-sub{display:none}
 </style>
 </head>
 <body>
@@ -754,11 +784,13 @@
 
   <div id="turn-wrap"></div>
 
-  <div class="sheet">
-    <div class="scroller">
-      <table id="grid"></table>
+  <div id="fit-outer"><div id="fit">
+    <div class="sheet">
+      <div class="scroller">
+        <table id="grid"></table>
+      </div>
     </div>
-  </div>
+  </div></div>
 
   <div id="online-wrap"></div>
   <div id="done-wrap"></div>
@@ -1083,12 +1115,36 @@
   function online(){ return !!OL; }
   function isMe(p){ return !!(OL && p.uid && p.uid === OL.uid); }
   function amHost(){ return !!(OL && OL.uid === OL.host); }
-  /* qui peut modifier une colonne : la sienne, plus l'hôte partout
-     (y compris les joueurs sans téléphone, dont uid est absent) */
+  /* qui peut modifier une colonne :
+     - la sienne, toujours ;
+     - l'organisateur : les joueurs sans téléphone (personne d'autre ne tient leur
+       feuille), et les autres joueurs connectés UNIQUEMENT en mode organisateur.
+     Sans cette dernière restriction, l'organisateur remplissait sans le vouloir la
+     case du joueur dont c'était le tour depuis sa propre feuille. */
   function canEdit(p){
     if(!OL) return true;
-    return amHost() || (p.uid && p.uid === OL.uid);
+    if(p.uid && p.uid === OL.uid) return true;
+    if(!amHost()) return false;
+    return !p.uid || adminMode;
   }
+
+  /* ---------------- présence des joueurs en ligne ----------------
+     Chaque appareil signe « seen » toutes les 25 s avec l'HORLOGE DU SERVEUR
+     ({".sv":"timestamp"}). On ne compare donc jamais à l'heure locale — qui diffère
+     d'un téléphone à l'autre — mais les joueurs entre eux : celui dont la signature
+     a plus de 75 s de retard sur la plus récente est considéré absent.
+     Un joueur qui touche « Quitter » pose en plus un drapeau « left ». */
+  var HB_MS = 25000, OFF_MS = 75000;
+  function lastSeenMax(){
+    return state.players.reduce(function(m,q){ return q.seen > m ? q.seen : m; }, 0);
+  }
+  function pOffline(p){
+    if(!OL || isMe(p)) return false;
+    if(p.left) return true;
+    if(!p.uid || !p.seen) return false;   /* sans téléphone, ou client d'avant cette version */
+    return lastSeenMax() - p.seen > OFF_MS;
+  }
+  function offCount(){ return state.players.filter(pOffline).length; }
   function save(){
     if(OL) return;   /* en ligne, la source de vérité est Firebase, pas localStorage */
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
@@ -1140,9 +1196,11 @@
 
     function nameInput(p,i){
       var ro = OL && !canEdit(p);
+      var tag = isMe(p) ? "<span class='metag'>moi</span>"
+              : (pOffline(p) ? "<span class='metag off'>"+(p.left?"parti":"absent")+"</span>" : "");
       return "<input class='pname' value='"+esc(p.name)+"' data-name='"+i+"' list='known-names' "+
              "maxlength='12' autocomplete='off' autocapitalize='words' spellcheck='false'"+(ro?" readonly":"")+">"+
-             (isMe(p)?"<span class='metag'>moi</span>":"");
+             tag;
     }
     function colHead(col){
       var m = {free:"Libre",desc:"Desc.",mont:"Mont.",impose:"Imposé"};
@@ -1246,6 +1304,7 @@
     renderOnline();
     renderDone();
     save();
+    fitSheet();   /* en dernier : la mise à l'échelle dépend de tout ce qui entoure la feuille */
   }
 
   /* bandeau : à qui c'est le tour + contrôles organisateur */
@@ -1256,7 +1315,13 @@
     var msg;
     if(admin) msg = "<b>Mode organisateur</b> — corrigez n'importe quelle case (marquée ✱).";
     else if(roundOne()) msg = "Premier tour : chacun inscrit une case pour fixer l'ordre de jeu.";
-    else { var tpl = turnPlayer(); msg = "C'est au tour de <b>" + esc(tpl ? tpl.name : "…") + "</b>."; }
+    else {
+      var tpl = turnPlayer();
+      msg = "C'est au tour de <b>" + esc(tpl ? tpl.name : "…") + "</b>.";
+      if(tpl && pOffline(tpl))
+        msg += " <span class='tb-off'>" + (tpl.left ? "A quitté la partie." : "Semble déconnecté(e).") +
+               (canAdmin() ? " Passez son tour (↷) ou retirez-le du panneau « En ligne »." : "") + "</span>";
+    }
 
     var ctl = "";
     if(canAdmin() && !roundOne() && !admin)
@@ -1403,9 +1468,14 @@
     var col = colId || mainCol();
     var isBonus = catId === "__yb";
     var byAdmin = adminMode && canAdmin();
+    /* colonne d'un autre : refus, avec le mode organisateur comme porte de sortie pour l'hôte */
+    if(OL && !canEdit(p)){
+      toast(amHost() ? "Activez « Organiser » pour écrire dans la colonne d'un autre joueur."
+                     : "Cette colonne n'est pas la vôtre.");
+      return;
+    }
     /* verrouillage par tour (hors admin, hors bonus Yam's) */
     if(!byAdmin && !isBonus && turnLockActive()){
-      if(OL && !canEdit(p)){ toast("Cette colonne n'est pas la vôtre."); return; }
       if(!isMyTurn(p)){
         var w = turnPlayer();
         toast(w ? "C'est au tour de " + w.name + " de jouer." : "C'est au tour d'un autre joueur.");
@@ -2431,6 +2501,123 @@
     try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeColor); }catch(e){}
   }
 
+  /* ---------------- feuille sur un seul écran ----------------
+     Les hauteurs de ligne de la grille sont fixes : sa hauteur naturelle ne dépend
+     donc pas de sa largeur, on peut la mesurer une fois puis la réduire. Si elle
+     dépasse la place libre sous l'en-tête, on l'affiche à l'échelle k (une seule
+     transformation CSS : lignes et texte rétrécissent ensemble, rien ne se
+     désaligne) en élargissant le contenu de 1/k pour qu'il occupe toute la largeur.
+     En dessous de FIT_MIN le texte deviendrait illisible : on s'arrête là et la
+     page redevient défilable. Quand la feuille tient déjà, rien n'est touché. */
+  var FITKEY = "yams.fit.v1", FIT_MIN = .55, FIT_SOFT = .78, ROW_MAX = 52, ROW_MIN = 34, ROW_TIGHT = 26;
+  function fitPref(){ try{ return localStorage.getItem(FITKEY) !== "off"; }catch(e){ return true; } }
+  function setRowH(v){
+    var s = document.documentElement.style;
+    if(v) s.setProperty("--rowh", v + "px"); else s.removeProperty("--rowh");
+  }
+  function fitMeasure(){
+    var outer = document.getElementById("fit-outer"), wrapEl = document.querySelector(".wrap");
+    var vh = Math.min(window.innerHeight || 9999, document.documentElement.clientHeight || 9999);
+    var ro = outer.getBoundingClientRect(), rw = wrapEl.getBoundingClientRect();
+    /* marge basse réelle du body : 28 px + la zone sûre du téléphone (encoche, barre
+       gestuelle), qui vaut zéro sur ordinateur mais une trentaine de pixels sur iPhone */
+    var pb = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    return {
+      nat: document.getElementById("fit").offsetHeight,
+      /* place libre = écran − ce qui précède la feuille − ce qui la suit (bandeaux,
+         pied de page) − marge basse */
+      avail: vh - (ro.top + (window.pageYOffset||0)) - (rw.bottom - ro.bottom) - pb - 4
+    };
+  }
+  /* Cherche la hauteur de ligne qui remplit exactement `avail`, entre `min` et ROW_MAX.
+     La hauteur totale étant affine en --rowh, une mesure à chaque extrémité donne la
+     pente et donc la valeur cherchée sans tâtonner. Retourne la hauteur obtenue. */
+  function solveRow(avail, min){
+    setRowH(0);   var natMax = fitMeasure().nat;
+    setRowH(min); var natMin = fitMeasure().nat;
+    var pente = (natMax - natMin) / (ROW_MAX - min);
+    var rh = pente > 0 ? Math.floor(min + (avail - natMin) / pente) : ROW_MAX;
+    rh = Math.max(min, Math.min(ROW_MAX, rh));
+    setRowH(rh < ROW_MAX ? rh : 0);
+    return fitMeasure().nat;
+  }
+  function fitSheet(){
+    var outer = document.getElementById("fit-outer"), inner = document.getElementById("fit");
+    if(!outer || !inner) return;
+    /* on repart toujours de la feuille à taille normale, sinon on mesurerait le résultat
+       de l'ajustement précédent */
+    document.body.classList.remove("fit"); document.body.classList.remove("tight"); setRowH(0);
+    inner.style.transform = ""; inner.style.width = ""; outer.style.height = "";
+    if(!fitPref()) return;
+
+    var m = fitMeasure();
+    if(m.nat <= 0 || m.avail <= 0 || m.nat <= m.avail) return;   /* tient déjà : on ne touche à rien */
+    document.body.classList.add("fit");                          /* place récupérée autour de la feuille */
+    m = fitMeasure();
+    if(m.nat <= m.avail) return;
+
+    /* 1) resserrer les lignes — le texte garde sa taille, c'est toujours préférable.
+       La hauteur totale est affine en --rowh : deux mesures suffisent à trouver la
+       valeur exacte qui remplit la place disponible. */
+    var nat = solveRow(m.avail, ROW_MIN);
+    /* 2) s'il faut encore réduire beaucoup, on retire les rappels de règle : à ce
+       niveau ils seraient de toute façon illisibles, et les lignes peuvent alors
+       descendre bien plus bas. Pour un simple dépassement, on préfère les garder
+       et se contenter d'une légère réduction. */
+    if(m.avail / nat < FIT_SOFT){
+      document.body.classList.add("tight");
+      nat = solveRow(m.avail, ROW_TIGHT);
+    }
+    if(nat <= m.avail) return;
+
+    /* 3) lignes déjà au plus serré et ça déborde encore : réduction d'ensemble */
+    var k = Math.max(FIT_MIN, m.avail / nat);
+    inner.style.width = (100/k) + "%";
+    inner.style.transform = "scale(" + k + ")";
+    outer.style.height = Math.ceil(nat * k) + "px";
+  }
+  var fitT;
+  function fitLater(){
+    clearTimeout(fitT);
+    fitT = setTimeout(function(){
+      /* le clavier du téléphone déclenche un resize et rabote la moitié de l'écran :
+         on ne réajuste pas pendant une saisie, l'écran sera remesuré à sa fermeture */
+      var ae = document.activeElement;
+      if(ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+      fitSheet();
+    }, 120);
+  }
+  window.addEventListener("resize", fitLater);
+  window.addEventListener("orientationchange", fitLater);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(fitSheet).catch(function(){});
+
+  /* ---------------- écran toujours allumé ----------------
+     Wake Lock : le verrou est relâché par le navigateur dès que la page passe en
+     arrière-plan, il faut donc le redemander au retour. Certains navigateurs
+     exigent une interaction récente : on retente aussi au premier appui. */
+  var WAKEKEY = "yams.wake.v1", wakeLock = null;
+  function wakeOk(){ return !!(navigator.wakeLock && navigator.wakeLock.request); }
+  function wakePref(){ try{ return localStorage.getItem(WAKEKEY) !== "off"; }catch(e){ return true; } }
+  function wakeApply(){
+    if(!wakeOk()) return;
+    if(!wakePref()){
+      if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
+      return;
+    }
+    if(wakeLock || document.visibilityState !== "visible") return;
+    navigator.wakeLock.request("screen").then(function(l){
+      wakeLock = l;
+      l.addEventListener("release", function(){ wakeLock = null; });
+    }).catch(function(){ wakeLock = null; });
+  }
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState !== "visible") return;
+    wakeApply();
+    beat();          /* de retour : on se signale tout de suite aux autres joueurs */
+  });
+  document.addEventListener("click", wakeApply);
+  wakeApply();
+
   function renderSettings(){
     var tp = themePref();
     var pref = persistPref(), dispo = persistState !== "indisponible";
@@ -2476,6 +2663,29 @@
         "</div>"+
       "</div>"+
       "<div class='set'><div class='set-b'>"+
+        "<div class='set-n'>Feuille sur un seul écran</div>"+
+        "<div class='set-d'>Réduit la feuille juste ce qu'il faut pour qu'elle tienne "+
+        "entièrement à l'écran, sans avoir à faire défiler la page. Sur un grand écran "+
+        "où tout tient déjà, rien ne change.<br><br>"+
+        "Avec beaucoup de joueurs ou de colonnes, la réduction s'arrête à la limite du "+
+        "lisible : la page redevient alors défilable.</div>"+
+      "</div>"+
+      "<button class='sw"+(fitPref()?" on":"")+"' id='sw-fit' role='switch' "+
+        "aria-checked='"+(fitPref()?"true":"false")+"' aria-label='Feuille sur un seul écran'><i></i></button>"+
+      "</div>"+
+      "<div class='set'><div class='set-b'>"+
+        "<div class='set-n'>Garder l'écran allumé</div>"+
+        "<div class='set-d'>Empêche le téléphone de se mettre en veille tant que la feuille "+
+        "de score est affichée — pratique pendant une partie, où l'on ne touche l'écran "+
+        "qu'entre deux tours. La veille reprend normalement dès que vous quittez la page.</div>"+
+        (wakeOk() ? "" : "<div class='set-s'>Ce navigateur ne propose pas cette option "+
+          "(sur iPhone, elle demande Safari 16.4 ou plus récent).</div>")+
+      "</div>"+
+      "<button class='sw"+(wakeOk() && wakePref() ? " on" : "")+(wakeOk() ? "" : " off")+"' id='sw-wake' "+
+        "role='switch' aria-checked='"+(wakeOk() && wakePref() ?"true":"false")+"' "+
+        "aria-label='Garder l&#39;écran allumé'"+(wakeOk() ? "" : " disabled")+"><i></i></button>"+
+      "</div>"+
+      "<div class='set'><div class='set-b'>"+
         "<div class='set-n'>Conserver l'historique des parties</div>"+
         "<div class='set-d'>Chaque partie terminée est enregistrée sur cet appareil : c'est "+
         "ce qui alimente <b>l'historique et les statistiques</b> — victoires de chacun, "+
@@ -2497,6 +2707,15 @@
   document.getElementById("set-body").addEventListener("click", function(e){
     var tb = e.target.closest("[data-theme-set]");
     if(tb){ applyTheme(tb.getAttribute("data-theme-set")); renderSettings(); return; }
+    if(e.target.closest("#sw-fit")){
+      try{ localStorage.setItem(FITKEY, fitPref() ? "off" : "on"); }catch(err){}
+      renderSettings(); fitSheet(); return;
+    }
+    if(e.target.closest("#sw-wake")){
+      if(!wakeOk()) return;
+      try{ localStorage.setItem(WAKEKEY, wakePref() ? "off" : "on"); }catch(err){}
+      renderSettings(); wakeApply(); return;
+    }
     if(!e.target.closest("#sw-persist")) return;
     if(persistState === "indisponible" || !(navigator.storage && navigator.storage.persist)) return;
 
@@ -2732,14 +2951,54 @@
       var p = ps[pid] || {};
       return normPlayer({ id:pid, name:(p.name||"?"), uid:p.uid||null,
                order:(typeof p.order==="number"?p.order:0),
+               seen:(typeof p.seen==="number"?p.seen:0), left:!!p.left,
                s:p.s||{}, bonusYams:p.yb||{}, corrected:p.corrected||{} });
     }).sort(function(a,b){ return a.order-b.order || (a.id<b.id?-1:1); });
     /* tour de jeu partagé */
     var t = OL.data.turn;
     state.turn = { order: fbArray(t && t.order), pos: (t && typeof t.pos==="number") ? t.pos : 0 };
+
+    /* Les battements de présence arrivent toutes les 25 s par joueur : on ne redessine
+       que si quelque chose de visible a changé (scores, noms, tour, règles, présence). */
+    var sig = JSON.stringify([ state.config, state.turn, state.players.map(function(p){
+      return [p.id, p.name, p.uid, p.order, p.s, p.bonusYams, p.corrected,
+              p.left?1:0, pOffline(p)?1:0];
+    }) ]);
+    announcePresence();
+    if(sig === OL.sig) return;
+    OL.sig = sig;
+
     render();
     if(mOnline.classList.contains("on")) renderOnlineModal();
     if(mPlayers.classList.contains("on")) close();
+  }
+
+  /* met à jour une signature de présence sans recharger la partie ; on ne redessine
+     que si quelqu'un vient de décrocher ou de revenir */
+  function applySeen(pid, ts){
+    if(!OL) return;
+    if(OL.data && OL.data.players && OL.data.players[pid]) OL.data.players[pid].seen = ts;
+    var p = playerById(pid); if(!p) return;
+    p.seen = ts;
+    var off = OL.off || {}, changed = state.players.some(function(q){ return pOffline(q) !== !!off[q.id]; });
+    announcePresence();
+    if(!changed) return;
+    render();
+    if(mOnline.classList.contains("on")) renderOnlineModal();
+  }
+
+  /* prévient tout le monde quand un joueur décroche ou revient */
+  function announcePresence(){
+    if(!OL) return;
+    var seenNow = OL.off || (OL.off = {});
+    state.players.forEach(function(p){
+      var off = pOffline(p);
+      if(off === !!seenNow[p.id]) return;
+      if(OL.sig !== undefined)   /* pas d'annonce sur le tout premier chargement */
+        toast(off ? (p.name + (p.left ? " a quitté la partie." : " semble déconnecté(e)."))
+                  : (p.name + " est de retour."));
+      seenNow[p.id] = off;
+    });
   }
 
   function setConn(b){ if(OL){ OL.connected=b; renderOnline(); } }
@@ -2752,6 +3011,11 @@
     function onEvt(ev){
       var msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
       setConn(true);
+      /* battement de présence : on l'applique sur place. Sans ce raccourci, chaque
+         signature (une par joueur toutes les 25 s) ferait recharger toute la partie
+         à tous les appareils. */
+      var mb = msg && typeof msg.data === "number" && /^\/players\/([^\/]+)\/seen$/.exec(msg.path||"");
+      if(mb){ applySeen(mb[1], msg.data); return; }
       if(msg && msg.path === "/"){
         if(msg.data === null){ gameGone(); return; }
         applyData(msg.data);
@@ -2786,14 +3050,17 @@
   }
 
   function teardown(){
-    if(OL){ if(OL.es){ try{ OL.es.close(); }catch(e){} } clearTimeout(OL.rt); }
+    if(OL){ stopBeat(); if(OL.es){ try{ OL.es.close(); }catch(e){} } clearTimeout(OL.rt); }
     OL = null;
     try{ localStorage.removeItem(OLKEY); }catch(e){}
   }
 
   function leaveGame(){
-    /* l'organisateur ferme la partie pour tout le monde ; un invité s'en va seul */
+    /* l'organisateur ferme la partie pour tout le monde ; un invité s'en va seul —
+       en laissant un drapeau « left » pour que les autres le voient tout de suite
+       (ses scores restent : l'organisateur décide de le retirer ou non) */
     if(OL && amHost() && OL.data){ try{ dbDel("games/"+OL.gid); }catch(e){} }
+    else if(OL && OL.myPid && OL.data){ try{ dbPut("games/"+OL.gid+"/players/"+OL.myPid+"/left", true); }catch(e){} }
     teardown();
     state = load() || { players:[ mk("Joueur 1"), mk("Joueur 2") ] };
     state.players.forEach(normPlayer);
@@ -2824,7 +3091,7 @@
       return dbPut("games/"+gid, game).then(function(res){
         if(!res.ok) throw new Error("write");
         persistSession(); applyData(game);
-        subscribe(); scheduleRefresh();
+        subscribe(); scheduleRefresh(); startBeat();
         unbusy(); close(); renderOnlineModal(); open(mOnline);
       });
     }).catch(function(){ teardown(); unbusy(); alert("Impossible de créer la partie. Vérifiez votre connexion."); render(); });
@@ -2868,7 +3135,7 @@
       render();
     });
   }
-  function afterJoin(){ persistSession(); subscribe(); scheduleRefresh(); unbusy(); close(); }
+  function afterJoin(){ persistSession(); subscribe(); scheduleRefresh(); startBeat(); unbusy(); close(); }
 
   /* ---------- Écritures ---------- */
   function pushValue(p, col, cat, v){
@@ -2892,24 +3159,60 @@
     val ? dbPut(pth, true) : dbDel(pth);
   }
 
+  /* battement de présence : l'horodatage vient du serveur, pas du téléphone */
+  function beat(){
+    if(!OL || !OL.myPid) return;
+    dbPut("games/"+OL.gid+"/players/"+OL.myPid+"/seen", {".sv":"timestamp"});
+  }
+  function startBeat(){
+    if(!OL || !OL.myPid) return;
+    stopBeat();
+    dbDel("games/"+OL.gid+"/players/"+OL.myPid+"/left");   /* je suis (de nouveau) là */
+    beat();
+    OL.hb = setInterval(beat, HB_MS);
+  }
+  function stopBeat(){ if(OL && OL.hb){ clearInterval(OL.hb); OL.hb = null; } }
+
   function addNoPhone(){
     if(!amHost() || gameStarted()) return;   /* pas de nouveau joueur en cours de partie */
     var pid = "np"+Math.random().toString(36).slice(2,8);
     dbPut("games/"+OL.gid+"/players/"+pid, { name:"Joueur "+(state.players.length+1), order:state.players.length });
   }
+  /* Retrait d'un joueur par l'organisateur. Autorisé aussi en cours de partie : c'est
+     le seul recours quand quelqu'un s'en va sans revenir. On répare l'ordre du tour
+     AVANT la suppression, sinon la main resterait bloquée sur un joueur absent. */
   function removeOnline(pid){
-    if(!amHost() || pid===OL.myPid || gameStarted()) return;   /* retrait interdit une fois commencé */
-    if(confirm("Retirer ce joueur de la partie ?")) dbDel("games/"+OL.gid+"/players/"+pid);
+    if(!amHost() || pid === OL.myPid) return;
+    var p = playerById(pid); if(!p) return;
+    var started = gameStarted();
+    if(!confirm(started
+        ? "Retirer « "+p.name+" » de la partie en cours ?\n\nSa colonne et ses scores seront supprimés pour tout le monde, et le tour de jeu passera au joueur suivant."
+        : "Retirer « "+p.name+" » de la partie ?")) return;
+
+    var t = state.turn, i = t.order.indexOf(pid), newTurn = null;
+    if(i >= 0){
+      var order = t.order.slice(), curId = order[t.pos % order.length];
+      order.splice(i, 1);
+      var ni = order.indexOf(curId);   /* −1 = c'était son tour → la main passe au suivant */
+      newTurn = { order:order, pos: ni >= 0 ? ni : (order.length ? t.pos % order.length : 0) };
+    }
+    if(OL.off) delete OL.off[pid];
+    dbDel("games/"+OL.gid+"/players/"+pid).then(function(){
+      if(!newTurn || !OL) return;
+      state.turn = newTurn;   /* écrit après la suppression, pour ne pas être écrasé entre-temps */
+      pushTurn();
+    });
   }
 
   /* ---------- Bandeau de statut sous la feuille ---------- */
   function renderOnline(){
     var w = document.getElementById("online-wrap");
     if(!OL){ w.innerHTML=""; return; }
-    var n = state.players.length;
+    var n = state.players.length, no = offCount();
     w.innerHTML = "<div class='onl-bar'>"+
       "<span class='onl-dot "+(OL.connected===false?"off":"on")+"'></span>"+
       "<span class='onl-info'>En ligne · <b>"+OL.gid+"</b> · "+n+" joueur"+(n>1?"s":"")+
+        (no?" · <b class='onl-off'>"+no+" absent"+(no>1?"s":"")+"</b>":"")+
         (OL.connected===false?" · reconnexion…":"")+"</span>"+
       "<button class='onl-b' data-onl='qr'>QR</button>"+
       "<button class='onl-b' data-onl='leave'>Quitter</button></div>";
@@ -2926,10 +3229,11 @@
     if(!OL) return;
     var url = joinURL(), started = gameStarted();
     var roster = state.players.map(function(p){
-      var tag = isMe(p) ? "moi" : (!p.uid ? "sans téléphone" : "");
-      var rm = (amHost() && !isMe(p) && !started) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
+      var off = pOffline(p);
+      var tag = isMe(p) ? "moi" : (p.left ? "a quitté" : (off ? "hors ligne" : (!p.uid ? "sans téléphone" : "")));
+      var rm = (amHost() && !isMe(p)) ? "<button class='onl-rm' data-rmpid='"+p.id+"'>✕</button>" : "";
       return "<div class='onl-p'><span class='onl-pn'>"+esc(p.name)+
-        (tag?"<span class='onl-ptag'>"+tag+"</span>":"")+"</span>"+
+        (tag?"<span class='onl-ptag"+(off?" off":"")+"'>"+tag+"</span>":"")+"</span>"+
         "<span class='onl-pt'>"+grand(p)+"</span>"+rm+"</div>";
     }).join("");
     document.getElementById("onl-body").innerHTML =
@@ -2941,6 +3245,8 @@
         "<button class='btn onl-alt' data-onl='copy'>Copier le lien</button></div>"+
       "<div class='onl-roster'><div class='onl-rt'>Joueurs ("+state.players.length+")</div>"+roster+
         ((amHost() && !started)?"<button class='onl-add' data-onl='addnp'>＋ Joueur sans téléphone</button>":"")+
+        (amHost()?"<p class='onl-hint'>✕ retire un joueur de la partie — à utiliser si quelqu'un est parti "+
+                  "en cours de route. Ses scores sont alors supprimés et le tour passe au suivant.</p>":"")+
       "</div>"+
       "<textarea class='code-box' id='onl-url' readonly>"+esc(url)+"</textarea>";
   }
@@ -3057,7 +3363,7 @@
           OL.host = r.body.host;
           var ps = r.body.players || {};
           if(!ps[OL.myPid]) Object.keys(ps).forEach(function(k){ if(ps[k].uid===a.uid) OL.myPid=k; });
-          applyData(r.body); persistSession(); subscribe(); scheduleRefresh(); unbusy();
+          applyData(r.body); persistSession(); subscribe(); scheduleRefresh(); startBeat(); unbusy();
         });
       }).catch(function(){ teardown(); unbusy(); render(); showWelcome(); });
       return;

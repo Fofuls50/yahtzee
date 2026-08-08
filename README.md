@@ -11,6 +11,8 @@ Un seul fichier `index.html`, aucune dépendance, aucun serveur : tout tourne da
 - **Historique et statistiques** : victoires, taux de réussite, moyennes, records
 - **Partie en ligne** : chacun sur son téléphone, scores en direct, on rejoint en scannant un QR code
 - Sauvegarde automatique sur l'appareil (la partie survit à la fermeture de l'onglet)
+- **Feuille sur un seul écran** : la grille s'ajuste pour être visible en entier, sans défilement
+- **Écran maintenu allumé** pendant la partie (désactivable dans les réglages)
 - Thème clair / sombre selon les réglages du téléphone
 - Compatible Safari iOS et Chrome Android
 
@@ -28,11 +30,19 @@ ligne**. Un QR code s'affiche ; les autres le scannent avec l'appareil photo de 
 téléphone et sont amenés directement sur la partie. Ils saisissent leur nom et jouent —
 **aucun compte n'est nécessaire**.
 
-- Chacun ne modifie que **sa** colonne ; l'organisateur peut corriger n'importe qui.
+- Chacun ne modifie que **sa** colonne. L'organisateur ne fait pas exception : pour écrire
+  chez un autre joueur connecté, il doit activer **Organiser** dans le bandeau de tour
+  (les cases qu'il touche sont alors marquées ✱). Sans ce garde-fou, il remplissait sans
+  le vouloir la case du joueur dont c'était le tour.
 - L'organisateur peut ajouter un **joueur sans téléphone** (un enfant par exemple) et tenir
-  sa colonne.
-- Un bandeau sous la feuille indique l'état de la connexion, le code de la partie et le
-  nombre de joueurs. Le bouton **QR** le ré-affiche à tout moment.
+  sa colonne : celle-là est éditable en permanence, personne d'autre ne la tient.
+- **Absences** : chaque appareil se signale toutes les 25 secondes. Un joueur silencieux
+  depuis plus d'une minute apparaît « hors ligne » (dans la feuille, le bandeau et la liste
+  des joueurs) et tout le monde en est averti ; celui qui touche **Quitter** apparaît
+  « a quitté ». L'organisateur peut alors le **retirer de la partie** (croix ✕ dans le
+  panneau **QR**), y compris en cours de jeu : le tour passe au joueur suivant.
+- Un bandeau sous la feuille indique l'état de la connexion, le code de la partie, le
+  nombre de joueurs et le nombre d'absents. Le bouton **QR** le ré-affiche à tout moment.
 - La partie survit à une coupure réseau ou à la fermeture de l'onglet : à la réouverture,
   le téléphone se reconnecte tout seul.
 - Quand tous ont terminé, chacun peut **Enregistrer** la partie dans son propre historique
@@ -157,6 +167,31 @@ Trois mécanismes se complètent :
 - **Android (Chrome)** : menu ⋮ → *Ajouter à l'écran d'accueil*
 
 L'application s'ouvre alors en plein écran, sans barre d'adresse.
+
+## Confort de jeu
+
+Deux options dans les **Réglages** (roue dentée), actives par défaut et propres à chaque appareil :
+
+- **Feuille sur un seul écran.** La feuille est mesurée après chaque rendu ; si elle tient
+  déjà (tablette, grand écran), rien n'est modifié. Sinon l'application gagne de la place
+  par étapes, de la moins gênante à la plus visible :
+  1. elle masque le rappel d'aide en bas de page et resserre les marges autour de la feuille ;
+  2. elle **resserre les lignes** (52 px → 34 px), sans toucher à la taille du texte ;
+  3. si l'écart reste important, elle retire le **rappel de règle** sous chaque nom de
+     combinaison (qui serait de toute façon illisible une fois réduit) et resserre les
+     lignes davantage — le texte, lui, garde presque sa taille normale ; la règle complète
+     reste accessible en touchant le nom ;
+  4. en dernier recours elle réduit l'ensemble d'un coup (une transformation CSS : lignes et
+     texte rétrécissent ensemble, rien ne se désaligne), en s'arrêtant à 55 % pour rester
+     lisible. Au-delà — beaucoup de joueurs *et* plusieurs colonnes *et* règles françaises —
+     la page redevient défilable.
+
+  La hauteur totale étant affine en hauteur de ligne, deux mesures suffisent à calculer
+  directement la valeur qui remplit l'écran : pas de tâtonnement, pas de scintillement.
+- **Garder l'écran allumé.** Utilise l'API *Wake Lock* : le téléphone ne se met plus en
+  veille tant que la feuille est affichée, ce qui évite de le rallumer à chaque tour. Le
+  verrou est relâché dès que l'onglet passe en arrière-plan et repris au retour. Nécessite
+  Safari 16.4+ sur iPhone ; l'option est grisée si le navigateur ne la propose pas.
 
 ## Règles appliquées
 
