@@ -580,6 +580,19 @@
   .colchip .ar{color:var(--accent);font-weight:800;font-size:15px}
   .colpick.locked .colchip{opacity:.5;pointer-events:none}
 
+  /* ---- règles : presets + réglages personnalisés ---- */
+  .rulespick{margin:2px 0 16px}
+  .rulespick.locked .seg{opacity:.5;pointer-events:none}
+  .rc{margin-top:12px;padding:12px;border-radius:13px;background:var(--paper);border:1px solid var(--line)}
+  .rc-chk{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;color:var(--ink);
+    padding:6px 0;cursor:pointer}
+  .rc-chk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+  .rc-nums{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:6px}
+  .rc-nums label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted);font-weight:600}
+  .rc-nums input{width:74px;height:36px;border-radius:9px;border:1px solid var(--line-strong);
+    background:var(--card);color:var(--ink);font-size:14px;font-weight:600;text-align:center;font:inherit}
+  .rc-nums input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+
   /* ---- page d'accueil ---- */
   .welcome{position:fixed;inset:0;z-index:60;background:var(--paper);
     display:flex;align-items:center;justify-content:center;padding:26px 18px;overflow-y:auto}
@@ -840,6 +853,7 @@
   <div class="m-title">Joueurs</div>
   <div class="m-sub" id="mp-sub"></div>
   <div id="mp-online"></div>
+  <div id="mp-rules"></div>
   <div id="mp-cols"></div>
   <div class="plist" id="mp-list"></div>
   <div class="m-actions">
@@ -905,7 +919,13 @@
       ex:"⚄⚄⚄⚄⚄", exN:"2ᵉ Yam's de la partie = +100 points" },
     "__bonus":{ title:"Bonus de la section haute",
       desc:"Si le total de la section haute (As à Six) atteint 63 points ou plus, vous gagnez 35 points de bonus. 63, c'est trois dés de chaque face.",
-      ex:"⚀⚀⚀⚁⚁⚁", exN:"3 de chaque face sur les 6 lignes = 63" }
+      ex:"⚀⚀⚀⚁⚁⚁", exN:"3 de chaque face sur les 6 lignes = 63" },
+    "plus":{ title:"Plus", sub:"Section française",
+      desc:"Aucune condition : n'importe quel tirage est accepté. Notez la somme des 5 dés. À la fin, Plus moins Moins s'ajoute à votre score.",
+      ex:"⚅⚄⚄⚂⚁", exN:"6+5+5+3+2 = 21 points" },
+    "moins":{ title:"Moins", sub:"Section française",
+      desc:"Aucune condition : n'importe quel tirage est accepté. Notez la somme des 5 dés. À la fin, Plus moins Moins s'ajoute à votre score (donc plus Moins est haut, plus il vous coûte).",
+      ex:"⚀⚀⚁⚂⚂", exN:"1+1+2+3+3 = 10 points" }
   };
   var UP  = CATS.filter(function(c){return c.sec==="up"});
   var LOW = CATS.filter(function(c){return c.sec==="low"});
@@ -969,6 +989,16 @@
      Montante : le même ordre, mais à l'envers (Chance → … → As).
      « Libre » et « Imposé » n'ont aucune contrainte de séquence. */
   var CAT_SEQ = CATS.map(function(c){ return c.id; });
+
+  /* ---- Plus / Moins (règle française) ----
+     Deux entrées manuelles (somme des 5 dés, comme la Chance) ; leur différence
+     (Plus − Moins, peut être négative) s'ajoute au score de la colonne. */
+  var PM_IDS = ["plus","moins"];
+  function pmActive(){ return !!cfg().plusMinus; }
+  function plusMinusDiff(p, col){
+    if(!pmActive()) return 0;
+    return (colVal(p,col,"plus")||0) - (colVal(p,col,"moins")||0);
+  }
   function colType(colId){ var c = columns().filter(function(x){ return x.id===colId; })[0]; return c ? c.type : "free"; }
   /* prochaine case à remplir dans cette colonne pour ce joueur ; null = pas de contrainte ou colonne complète */
   function nextSeqCat(p, colId){
@@ -1064,7 +1094,8 @@
   function bonusUpCol(p, col){ var b = cfg().upperBonus; return sumUpCol(p,col) >= b.threshold ? b.value : 0; }
   function totalUpCol(p, col){ return sumUpCol(p,col) + bonusUpCol(p,col); }
   function totalLowCol(p, col){
-    return LOW.reduce(function(t,c){ return t + (colVal(p,col,c.id)||0); },0) + colBonus(p,col)*cfg().yamsBonus;
+    return LOW.reduce(function(t,c){ return t + (colVal(p,col,c.id)||0); },0) + colBonus(p,col)*cfg().yamsBonus
+           + plusMinusDiff(p,col);
   }
   function grandCol(p, col){ return totalUpCol(p,col) + totalLowCol(p,col); }
   /* raccourcis « colonne principale » (compat mono-colonne) ; total joueur = somme des colonnes */
@@ -1157,6 +1188,26 @@
 
     h += calcRow("Total bas", pl, addable, function(p,col){ return totalLowCol(p,col); });
 
+    if(pmActive()){
+      h += "<tr class='sec'><th colspan='"+totalCols+"'>Section française</th></tr>";
+      [["plus","Plus","somme des 5 dés"],["moins","Moins","somme des 5 dés"]].forEach(function(pm){
+        var id=pm[0];
+        h += "<tr><th data-info='"+id+"'>"+catLabel({ label:pm[1], sub:pm[2] })+"</th>";
+        pl.forEach(function(p,i){ cols.forEach(function(col){
+          var v = colVal(p,col.id,id), ed = canEdit(p);
+          var filled = !(v===undefined||v===null);
+          var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
+                    (isMe(p)?" mecol":"")+(ed?"":" locked");
+          var txt = !filled ? "–" : (v===0 ? "✕" : v);
+          var star = (filled && colCorr(p,col.id,id)) ? "<span class='corr'>✱</span>" : "";
+          h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+id+"'><span class='cw'>"+txt+star+"</span></button></td>";
+        }); });
+        if(addable) h += "<td></td>";
+        h += "</tr>";
+      });
+      h += calcRow("Total (Plus − Moins)", pl, addable, function(p,col){ return plusMinusDiff(p,col); });
+    }
+
     var best = Math.max.apply(null, pl.map(grand));
     h += "<tr class='total"+(multi?" sub":"")+"'><th>"+(multi?"Total colonne":"TOTAL")+"</th>";
     pl.forEach(function(p){ cols.forEach(function(col){
@@ -1217,7 +1268,11 @@
   });
 
   function row(c, pl, addable){
-    var h = "<tr><th data-info='"+c.id+"'>"+catLabel(c)+"</th>";
+    /* règle française : le sous-titre reflète le barème réel (sans muter l'objet CATS partagé) */
+    var cLbl = c;
+    if(cfg().frenchScore && c.id === "carre") cLbl = { label:c.label, kind:null, sub:cfg().carreBonus+" + 4 identiques" };
+    else if(cfg().frenchScore && c.id === "yams") cLbl = { label:c.label, kind:null, sub:"50 + 5 identiques" };
+    var h = "<tr><th data-info='"+c.id+"'>"+catLabel(cLbl)+"</th>";
     var admin = adminMode && canAdmin();
     pl.forEach(function(p,i){
       columns().forEach(function(col){
@@ -1307,7 +1362,7 @@
     /* ordre imposé (Descendante/Montante) : hors admin, seule la prochaine case vide de la
        séquence s'ouvre. Ne s'applique qu'aux nouvelles saisies — on peut toujours rouvrir
        une case déjà remplie (pour la corriger ou l'effacer). */
-    if(!byAdmin && !isBonus && colVal(p, col, catId) === undefined){
+    if(!byAdmin && !isBonus && CAT_SEQ.indexOf(catId) >= 0 && colVal(p, col, catId) === undefined){
       var need = nextSeqCat(p, col);
       if(need && need !== catId){
         toast("Dans cette colonne, il faut d'abord remplir « " + BYID[need].label + " ».");
@@ -1322,8 +1377,14 @@
       sub = p.name + " — Yam's supplémentaires réalisés";
       opts = [0,1,2,3,4].map(function(k){ return { v:k, label: k? "+"+(k*cfg().yamsBonus) : "0" }; });
       sel = colBonus(p, cur.col);
+    } else if(catId === "plus" || catId === "moins"){
+      title = catId === "plus" ? "Plus" : "Moins";
+      sub = p.name + " — somme des 5 dés";
+      sel = colVal(p, cur.col, catId);
+      opts = [{v:0,label:"✕"}];
+      for(var kpm=5;kpm<=30;kpm++) opts.push({v:kpm,label:String(kpm)});
     } else {
-      var c = BYID[catId];
+      var c = BYID[catId], fr = cfg().frenchScore;
       title = c.label;
       sel = colVal(p, cur.col, catId);
       if(c.sec==="up"){
@@ -1331,6 +1392,18 @@
         opts = [0,1,2,3,4,5].map(function(k){
           return { v:k*c.face, label: k? String(k*c.face) : "✕", tag: k? k+" dé"+(k>1?"s":"") : "barré" };
         });
+      } else if(fr && catId==="carre"){
+        sub = p.name + " — carré de quelle face ? ("+cfg().carreBonus+" + 4 dés)";
+        opts = [1,2,3,4,5,6].map(function(f){
+          var v = cfg().carreBonus + 4*f; return { v:v, label:String(v), tag:"carré de "+f };
+        });
+        opts.push({v:0,label:"✕",tag:"barré"});
+      } else if(fr && catId==="yams"){
+        sub = p.name + " — Yam's de quelle face ? (50 + 5 dés)";
+        opts = [1,2,3,4,5,6].map(function(f){
+          var v = 50 + 5*f; return { v:v, label:String(v), tag:"yam's de "+f };
+        });
+        opts.push({v:0,label:"✕",tag:"barré"});
       } else if(c.kind==="fixed"){
         sub = p.name + " — combinaison réussie ?";
         opts = [{v:c.value,label:String(c.value),tag:"réussi"},{v:0,label:"✕",tag:"barré"}];
@@ -1349,7 +1422,18 @@
     var rule = INFO[id], title, sub;
     if(rule){
       title = rule.title;
-      sub = "Calculé automatiquement";
+      sub = rule.sub || "Calculé automatiquement";
+    } else if(cfg().frenchScore && id === "carre"){
+      title = "Carré";
+      sub = "Section basse (française) · "+cfg().carreBonus+" + somme des 4 dés";
+      rule = { desc:"Au moins 4 dés identiques. Vous marquez "+cfg().carreBonus+" points, plus la somme "+
+               "de ces 4 dés (le 5ᵉ dé ne compte pas).",
+               ex:"⚂⚂⚂⚂⚅", exN:"carré de 3 = "+cfg().carreBonus+" + 3+3+3+3 = "+(cfg().carreBonus+12)+" points" };
+    } else if(cfg().frenchScore && id === "yams"){
+      title = "Yam's";
+      sub = "Section basse (française) · 50 + somme des 5 dés";
+      rule = { desc:"Les 5 dés identiques. Vous marquez 50 points, plus la somme des 5 dés.",
+               ex:"⚅⚅⚅⚅⚅", exN:"Yam's de 6 = 50 + 6×5 = 80 points" };
     } else {
       var c = BYID[id];
       rule = c; title = c.label;
@@ -1452,11 +1536,66 @@
     render(); renderPlayers();
   }
 
+  /* ---------------- règles de la partie : presets + réglages personnalisés ---------------- */
+  function applyPreset(name){
+    var c = cfg();
+    c.preset = name;
+    if(name === "classic"){ c.frenchScore=false; c.plusMinus=false; c.upperBonus={threshold:63,value:35}; c.yamsBonus=100; }
+    else if(name === "french"){ c.frenchScore=true; c.plusMinus=true; c.carreBonus=40; c.upperBonus={threshold:63,value:35}; c.yamsBonus=100; }
+    /* 'custom' : on garde les valeurs actuelles, on affiche juste les champs de réglage */
+    save(); render(); renderPlayers();
+  }
+
+  function renderRules(){
+    var c = cfg(), locked = gameStarted();
+    var preset = c.preset || "classic";
+    var h = "<div class='rulespick"+(locked?" locked":"")+"'>"+
+      "<div class='colpick-t'>Règles"+(locked?" (verrouillé)":"")+"</div>"+
+      "<div class='seg'>"+
+        "<button data-preset='classic'"+(preset==="classic"?" class='on'":"")+">Classique</button>"+
+        "<button data-preset='french'"+(preset==="french"?" class='on'":"")+">Française</button>"+
+        "<button data-preset='custom'"+(preset==="custom"?" class='on'":"")+">Personnalisé</button>"+
+      "</div>";
+    if(preset === "custom"){
+      h += "<div class='rc'>"+
+        "<label class='rc-chk'><input type='checkbox' id='rc-french'"+(c.frenchScore?" checked":"")+(locked?" disabled":"")+
+          "> Yam's et Carré à la française (bonus fixe + somme des dés)</label>"+
+        "<label class='rc-chk'><input type='checkbox' id='rc-pm'"+(c.plusMinus?" checked":"")+(locked?" disabled":"")+
+          "> Lignes Plus / Moins (leur différence s'ajoute au score)</label>"+
+        "<div class='rc-nums'>"+
+          "<label>Bonus dès<input type='number' id='rc-ubt' value='"+c.upperBonus.threshold+"' min='1' max='300'"+(locked?" disabled":"")+"></label>"+
+          "<label>Valeur du bonus<input type='number' id='rc-ubv' value='"+c.upperBonus.value+"' min='0' max='300'"+(locked?" disabled":"")+"></label>"+
+          "<label>Bonus Yam's suppl.<input type='number' id='rc-yb' value='"+c.yamsBonus+"' min='0' max='500'"+(locked?" disabled":"")+"></label>"+
+          (c.frenchScore ? "<label>Bonus Carré<input type='number' id='rc-cb' value='"+c.carreBonus+"' min='0' max='300'"+(locked?" disabled":"")+"></label>" : "")+
+        "</div></div>";
+    }
+    h += "</div>";
+    document.getElementById("mp-rules").innerHTML = h;
+  }
+
+  document.getElementById("mp-rules").addEventListener("click", function(e){
+    var b = e.target.closest("[data-preset]"); if(!b || gameStarted()) return;
+    applyPreset(b.getAttribute("data-preset"));
+  });
+  document.getElementById("mp-rules").addEventListener("change", function(e){
+    if(gameStarted()) return;
+    var c = cfg(), t = e.target;
+    if(t.id === "rc-french"){ c.frenchScore = t.checked; }
+    else if(t.id === "rc-pm"){ c.plusMinus = t.checked; }
+    else if(t.id === "rc-ubt"){ c.upperBonus.threshold = Math.max(1, parseInt(t.value,10) || 63); }
+    else if(t.id === "rc-ubv"){ c.upperBonus.value = Math.max(0, parseInt(t.value,10) || 0); }
+    else if(t.id === "rc-yb"){ c.yamsBonus = Math.max(0, parseInt(t.value,10) || 0); }
+    else if(t.id === "rc-cb"){ c.carreBonus = Math.max(0, parseInt(t.value,10) || 0); }
+    else return;
+    save(); render(); renderRules();
+  });
+
   function renderPlayers(){
     var n = state.players.length, known = knownNames();
     var started = gameStarted();
     var locked = started;   /* on ne modifie pas la liste des joueurs une fois la partie commencée */
 
+    renderRules();
     document.getElementById("mp-sub").textContent = started
       ? "Partie en cours — liste des joueurs verrouillée"
       : "1 à 6 joueurs sur ce téléphone";
@@ -2029,13 +2168,19 @@
   }
 
   function sheetFull(p){
-    return columns().every(function(col){ return CATS.every(function(c){ return colVal(p,col.id,c.id) !== undefined; }); });
+    return columns().every(function(col){
+      var ok = CATS.every(function(c){ return colVal(p,col.id,c.id) !== undefined; });
+      if(ok && pmActive()) ok = PM_IDS.every(function(id){ return colVal(p,col.id,id) !== undefined; });
+      return ok;
+    });
   }
   function gameComplete(){ return state.players.length > 0 && state.players.every(sheetFull); }
   function gameStarted(){
     return state.players.some(function(p){
       return columns().some(function(col){
-        return CATS.some(function(c){ return colVal(p,col.id,c.id) !== undefined; }) || colBonus(p,col.id);
+        var any = CATS.some(function(c){ return colVal(p,col.id,c.id) !== undefined; }) || colBonus(p,col.id);
+        if(!any && pmActive()) any = PM_IDS.some(function(id){ return colVal(p,col.id,id) !== undefined; });
+        return any;
       });
     });
   }
