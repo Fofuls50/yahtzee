@@ -1807,7 +1807,7 @@
 
   /* classement des cases ouvertes pour un tirage */
   function rankCats(dice, p, open, live){
-    var yb = (isYams(dice) && colVal(p, mainCol(), "yams") === 50) ? 100 : 0;
+    var yb = (isYams(dice) && colVal(p, mainCol(), "yams") > 0) ? 100 : 0;   /* Yam's déjà réussi : 50 (classique) ou 50+somme (français) */
     return open.map(function(id){
       var pts = scoreCat(id, dice), c = BYID[id];
       var v = pts - BASE[id] + yb;
@@ -2244,7 +2244,7 @@
         if(x.t === best) a.wins++;          /* égalité : victoire partagée */
         if(x.t > a.best) a.best = x.t;
         if(x.b) a.bonus++;
-        if(x.y === 50) a.yams++;
+        if(x.y > 0) a.yams++;   /* Yam's réussi : 50 en classique, 55 à 80 en français */
       });
     });
     return Object.keys(agg).map(function(k){
