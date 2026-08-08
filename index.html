@@ -155,6 +155,11 @@
   tbody td:last-child,thead th:last-child{border-right:0}
   tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
 
+  /* grille à plusieurs colonnes : séparation plus marquée entre les joueurs qu'entre
+     les colonnes d'un même joueur, qui utilisent sinon exactement le même filet fin */
+  tbody td.pend,thead th.colh.pend{border-right:2px solid var(--line-strong)}
+  tbody td.pend:last-child,thead th.colh.pend:last-child{border-right:0}
+
   .die{color:var(--accent);font-size:22px;line-height:1;flex:none}
   .hint{color:var(--muted);font-size:10.5px;font-weight:500;margin-left:5px}
   th[data-info]{cursor:pointer}
@@ -914,9 +919,6 @@
   });
 
   var INFO = {
-    "__yb":{ title:"Bonus Yam's",
-      desc:"Si vous réalisez un second Yam's (ou plus) dans la partie, chacun rapporte 100 points supplémentaires.",
-      ex:"⚄⚄⚄⚄⚄", exN:"2ᵉ Yam's de la partie = +100 points" },
     "__bonus":{ title:"Bonus de la section haute",
       desc:"Si le total de la section haute (As à Six) atteint 63 points ou plus, vous gagnez 35 points de bonus. 63, c'est trois dés de chaque face.",
       ex:"⚀⚀⚀⚁⚁⚁", exN:"3 de chaque face sur les 6 lignes = 63" },
@@ -1162,7 +1164,7 @@
       });
       if(addable) h += "<th rowspan='2'><button class='addcol' data-add aria-label='Ajouter un joueur'>＋</button></th>";
       h += "</tr><tr>";
-      pl.forEach(function(p){ cols.forEach(function(col){ h += "<th class='colh'>"+colHead(col)+"</th>"; }); });
+      pl.forEach(function(p){ cols.forEach(function(col,ci){ h += "<th class='colh"+pendCls(ci,nc)+"'>"+colHead(col)+"</th>"; }); });
       h += "</tr>";
     } else {
       h += "<tr><th class='cat-h'></th>";
@@ -1182,9 +1184,10 @@
     h += calcRow("Total haut", pl, addable, function(p,col){ return sumUpCol(p,col); });
     h += "<tr class='calc'><th data-info='__bonus'>"+
          catLabel({ label:"Bonus", sub:"à partir de "+ub.threshold+" points" })+"</th>";
-    pl.forEach(function(p){ cols.forEach(function(col){
+    pl.forEach(function(p){ cols.forEach(function(col,ci){
       var s = sumUpCol(p,col.id), b = bonusUpCol(p,col.id);
-      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+(b?"+"+ub.value:"—")+
+      var cls = (isMe(p)?"mecol":"") + pendCls(ci,nc);
+      h += "<td"+(cls.trim()?" class='"+cls.trim()+"'":"")+">"+(b?"+"+ub.value:"—")+
            "<span class='bonus-track'>"+s+"/"+ub.threshold+"</span></td>";
     }); });
     if(addable) h += "<td></td>";
@@ -1196,10 +1199,10 @@
     var yb = cfg().yamsBonus;
     h += "<tr><th data-info='__yb'>"+
          catLabel({ label:"Bonus Yam's", sub:"+"+yb+" par Yam's en plus" })+"</th>";
-    pl.forEach(function(p,i){ cols.forEach(function(col){
+    pl.forEach(function(p,i){ cols.forEach(function(col,ci){
       var v = colBonus(p, col.id), ed = canEdit(p);
       var cls = "cell"+(v?"":" empty")+(isMe(p)?" mecol":"")+(ed?"":" locked");
-      h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='__yb'>"+
+      h += "<td class='"+pendCls(ci,nc).trim()+"'><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='__yb'>"+
            (v? "+"+(v*yb) : "–")+"</button></td>";
     }); });
     if(addable) h += "<td></td>";
@@ -1218,10 +1221,10 @@
 
     var best = Math.max.apply(null, pl.map(grand));
     h += "<tr class='total"+(multi?" sub":"")+"'><th>"+(multi?"Total colonne":"TOTAL")+"</th>";
-    pl.forEach(function(p){ cols.forEach(function(col){
+    pl.forEach(function(p){ cols.forEach(function(col,ci){
       var gc = grandCol(p,col.id);
       var lead = (!multi && n>1 && gc===best && gc>0) ? " lead" : "";
-      h += "<td class='"+(isMe(p)?"mecol":"")+lead+"'>"+gc+"</td>";
+      h += "<td class='"+(isMe(p)?"mecol":"")+lead+pendCls(ci,nc)+"'>"+gc+"</td>";
     }); });
     if(addable) h += "<td></td>";
     h += "</tr>";
@@ -1229,7 +1232,7 @@
       h += "<tr class='total grand'><th>Total joueur</th>";
       pl.forEach(function(p){
         var g = grand(p), lead = (n>1 && g===best && g>0) ? " lead" : "";
-        h += "<td colspan='"+nc+"' class='"+(isMe(p)?"mecol":"")+lead+"'>"+g+"</td>";
+        h += "<td colspan='"+nc+"' class='"+(isMe(p)?"mecol":"")+lead+" pend'>"+g+"</td>";
       });
       if(addable) h += "<td></td>";
       h += "</tr>";
@@ -1314,9 +1317,9 @@
     var cLbl = c, fcm0 = cfg().frenchScore ? frenchCatMeta(c.id) : null;
     if(fcm0) cLbl = { label:c.label, kind:null, sub:fcm0.rowSub };
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(cLbl)+"</th>";
-    var admin = adminMode && canAdmin();
+    var admin = adminMode && canAdmin(), nc = columns().length;
     pl.forEach(function(p,i){
-      columns().forEach(function(col){
+      columns().forEach(function(col,ci){
         var v = colVal(p, col.id, c.id), ed = canEdit(p);
         var filled = !(v===undefined||v===null);
         var seqNext = (!admin && ed && !noSeq) ? nextSeqCat(p, col.id) : null;  /* prochaine case autorisée (Desc/Mont) */
@@ -1325,7 +1328,7 @@
                   (isMe(p)?" mecol":"")+(ed?"":" locked")+(seqLocked?" seqlock":"");
         var txt = seqLocked ? "🔒" : (!filled ? "–" : (v===0 ? "✕" : v));
         var star = (filled && colCorr(p, col.id, c.id)) ? "<span class='corr'>✱</span>" : "";
-        h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
+        h += "<td class='"+pendCls(ci,nc).trim()+"'><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+c.id+"'><span class='cw'>"+txt+star+"</span></button></td>";
       });
     });
     if(addable) h += "<td></td>";
@@ -1342,9 +1345,10 @@
   }
 
   function calcRow(label, pl, addable, fnCol){
-    var h = "<tr class='calc'><th>"+label+"</th>";
-    pl.forEach(function(p){ columns().forEach(function(col){
-      h += "<td"+(isMe(p)?" class='mecol'":"")+">"+fnCol(p, col.id)+"</td>";
+    var h = "<tr class='calc'><th>"+label+"</th>", nc = columns().length;
+    pl.forEach(function(p){ columns().forEach(function(col,ci){
+      var cls = (isMe(p)?"mecol":"") + pendCls(ci,nc);
+      h += "<td"+(cls.trim()?" class='"+cls.trim()+"'":"")+">"+fnCol(p, col.id)+"</td>";
     }); });
     if(addable) h += "<td></td>";
     return h + "</tr>";
@@ -1361,6 +1365,10 @@
       return "<button data-"+attr+"='"+o.v+"'"+(o.v===active?" class='on'":"")+">"+o.label+"</button>";
     }).join("");
   }
+
+  /* classe à poser sur la dernière colonne du bloc d'un joueur, pour marquer visuellement
+     où il finit et où le joueur suivant commence (grille à plusieurs colonnes) */
+  function pendCls(ci, total){ return ci === total-1 ? " pend" : ""; }
 
   /* ---------------- modales ---------------- */
   var backdrop = document.getElementById("backdrop");
@@ -1460,7 +1468,17 @@
   function openInfo(id){
     cur = null;
     var rule = INFO[id], title, sub;
-    if(rule){
+    if(id === "__yb"){
+      var yb = cfg().yamsBonus;
+      title = "Bonus Yam's";
+      sub = "+"+yb+" par Yam's en plus";
+      rule = { desc:"Ceci n'est qu'un bonus à ajouter : dès votre 2ᵉ Yam's (5 dés identiques) de la "+
+               "partie, chacun rapporte "+yb+" points de plus, en plus du score normal. Mais attention, "+
+               "un lancer doit toujours remplir une case selon son résultat — vous devez donc aussi "+
+               "inscrire ce lancer dans une autre case encore libre (la case du haut correspondante si "+
+               "elle est libre, sinon une case du bas de votre choix), en plus de noter ce bonus ici.",
+               ex:"⚄⚄⚄⚄⚄", exN:"2ᵉ Yam's de la partie : +"+yb+" points ici, et le lancer inscrit ailleurs" };
+    } else if(rule){
       title = rule.title;
       sub = rule.sub || "Calculé automatiquement";
     } else if(cfg().frenchScore && frenchCatMeta(id)){
