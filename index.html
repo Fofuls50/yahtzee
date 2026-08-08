@@ -946,12 +946,21 @@
              yamsBonus:100, frenchScore:false, carreBonus:40, plusMinus:false,
              columns:[ { id:"libre", type:"free", label:"Libre", short:"↕" } ] };
   }
+  /* Firebase Realtime Database peut renvoyer un tableau comme objet à clés numériques
+     ({"0":...,"1":...}) plutôt que comme un vrai Array JS ; on normalise dans les deux
+     cas (sert à la fois pour les colonnes de la config et pour l'ordre du tour). */
+  function fbArray(v){
+    if(!v) return [];
+    if(Array.isArray(v)) return v.slice();
+    return Object.keys(v).sort(function(a,b){ return a-b; }).map(function(k){ return v[k]; });
+  }
   function migrateConfig(s){
     var d = defaultConfig();
     s.config = s.config || {};
     for(var k in d) if(s.config[k] === undefined) s.config[k] = d[k];
     if(!s.config.upperBonus) s.config.upperBonus = d.upperBonus;
-    if(!(s.config.columns && s.config.columns.length)) s.config.columns = d.columns;
+    var cols = fbArray(s.config.columns);
+    s.config.columns = cols.length ? cols : d.columns;
     return s;
   }
   function cfg(){ return state.config || (state.config = defaultConfig()); }
@@ -987,8 +996,11 @@
   /* ---- ordre imposé (colonnes Descendante / Montante) ----
      Descendante : As → … → Chance, dans l'ordre d'affichage de la grille.
      Montante : le même ordre, mais à l'envers (Chance → … → As).
-     « Libre » et « Imposé » n'ont aucune contrainte de séquence. */
+     « Libre » et « Imposé » n'ont aucune contrainte de séquence : ils sont simplement
+     absents de SEQ_DIR. Un futur type de colonne n'a qu'une ligne à ajouter ici, pas
+     de nouvelle branche dans nextSeqCat(). */
   var CAT_SEQ = CATS.map(function(c){ return c.id; });
+  var SEQ_DIR = { desc:1, mont:-1 };
 
   /* ---- Plus / Moins (règle française) ----
      Deux entrées manuelles (somme des 5 dés, comme la Chance) ; leur différence
@@ -1002,9 +1014,9 @@
   function colType(colId){ var c = columns().filter(function(x){ return x.id===colId; })[0]; return c ? c.type : "free"; }
   /* prochaine case à remplir dans cette colonne pour ce joueur ; null = pas de contrainte ou colonne complète */
   function nextSeqCat(p, colId){
-    var t = colType(colId);
-    if(t !== "desc" && t !== "mont") return null;
-    var order = t === "desc" ? CAT_SEQ : CAT_SEQ.slice().reverse();
+    var dir = SEQ_DIR[colType(colId)];
+    if(!dir) return null;
+    var order = dir > 0 ? CAT_SEQ : CAT_SEQ.slice().reverse();
     for(var i=0;i<order.length;i++) if(colVal(p, colId, order[i]) === undefined) return order[i];
     return null;
   }
@@ -1104,6 +1116,13 @@
   function totalUp(p){ return totalUpCol(p, mainCol()); }
   function totalLow(p){ return totalLowCol(p, mainCol()); }
   function grand(p){ return columns().reduce(function(t,col){ return t + grandCol(p, col.id); }, 0); }
+  /* agrégats toutes-colonnes, pour l'historique (archive()) : contrairement aux raccourcis
+     ci-dessus (pensés pour l'affichage mono-colonne), un Yam's ou un bonus des 63 compte
+     quelle que soit la colonne où le joueur l'a inscrit. */
+  function sumUpAll(p){ return columns().reduce(function(t,col){ return t + sumUpCol(p,col.id); }, 0); }
+  function bonusAchievedAny(p){ return columns().some(function(col){ return bonusUpCol(p,col.id) > 0; }); }
+  function yamsAchievedVal(p){ return columns().reduce(function(b,col){ var v = colVal(p,col.id,"yams")||0; return v>b?v:b; }, 0); }
+  function bonusYamsAll(p){ return columns().reduce(function(t,col){ return t + colBonus(p,col.id); }, 0); }
 
   /* ---------------- rendu ---------------- */
   var grid = document.getElementById("grid");
@@ -1190,21 +1209,10 @@
 
     if(pmActive()){
       h += "<tr class='sec'><th colspan='"+totalCols+"'>Section française</th></tr>";
-      [["plus","Plus","somme des 5 dés"],["moins","Moins","somme des 5 dés"]].forEach(function(pm){
-        var id=pm[0];
-        h += "<tr><th data-info='"+id+"'>"+catLabel({ label:pm[1], sub:pm[2] })+"</th>";
-        pl.forEach(function(p,i){ cols.forEach(function(col){
-          var v = colVal(p,col.id,id), ed = canEdit(p);
-          var filled = !(v===undefined||v===null);
-          var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
-                    (isMe(p)?" mecol":"")+(ed?"":" locked");
-          var txt = !filled ? "–" : (v===0 ? "✕" : v);
-          var star = (filled && colCorr(p,col.id,id)) ? "<span class='corr'>✱</span>" : "";
-          h += "<td><button class='"+cls+"'"+(ed?" data-cell='"+i+"' data-col='"+col.id+"'":"")+" data-cat='"+id+"'><span class='cw'>"+txt+star+"</span></button></td>";
-        }); });
-        if(addable) h += "<td></td>";
-        h += "</tr>";
-      });
+      /* Plus/Moins réutilisent row() (même rendu de case que les vraies catégories) ;
+         noSeq=true car elles sont hors CAT_SEQ et n'ont jamais de verrou d'ordre. */
+      h += row({ id:"plus",  label:"Plus",  sub:"somme des 5 dés" }, pl, addable, true);
+      h += row({ id:"moins", label:"Moins", sub:"somme des 5 dés" }, pl, addable, true);
       h += calcRow("Total (Plus − Moins)", pl, addable, function(p,col){ return plusMinusDiff(p,col); });
     }
 
@@ -1267,18 +1275,51 @@
     if(a === "back"){ turnBack(); return; }
   });
 
-  function row(c, pl, addable){
+  /* ---- barème français de Carré/Yam's : point d'entrée unique -----------------
+     Regroupe ici tout ce qui dépend de la formule (bonus fixe + somme des dés),
+     pour que row()/openScore()/openInfo() n'aient qu'à lire ces champs au lieu de
+     re-dériver chacun leur propre texte/valeurs. Retourne null hors règle française
+     ou pour toute autre catégorie. */
+  function frenchCatMeta(id){
+    if(id === "carre"){
+      var cb = cfg().carreBonus;
+      return {
+        rowSub: cb+" + 4 identiques",
+        optSub: "carré de quelle face ? ("+cb+" + 4 dés)",
+        opts: [1,2,3,4,5,6].map(function(f){ var v = cb+4*f; return { v:v, label:String(v), tag:"carré de "+f }; })
+              .concat([{v:0,label:"✕",tag:"barré"}]),
+        infoSub: "Section basse (française) · "+cb+" + somme des 4 dés",
+        infoDesc: "Au moins 4 dés identiques. Vous marquez "+cb+" points, plus la somme de ces 4 dés (le 5ᵉ dé ne compte pas).",
+        infoEx: "⚂⚂⚂⚂⚅", infoExN: "carré de 3 = "+cb+" + 3+3+3+3 = "+(cb+12)+" points"
+      };
+    }
+    if(id === "yams"){
+      return {
+        rowSub: "50 + 5 identiques",
+        optSub: "Yam's de quelle face ? (50 + 5 dés)",
+        opts: [1,2,3,4,5,6].map(function(f){ var v = 50+5*f; return { v:v, label:String(v), tag:"yam's de "+f }; })
+              .concat([{v:0,label:"✕",tag:"barré"}]),
+        infoSub: "Section basse (française) · 50 + somme des 5 dés",
+        infoDesc: "Les 5 dés identiques. Vous marquez 50 points, plus la somme des 5 dés.",
+        infoEx: "⚅⚅⚅⚅⚅", infoExN: "Yam's de 6 = 50 + 6×5 = 80 points"
+      };
+    }
+    return null;
+  }
+
+  /* noSeq : désactive le verrou d'ordre imposé pour cette ligne (utilisé par les
+     pseudo-catégories Plus/Moins, qui sont hors CAT_SEQ et ne doivent jamais l'hériter). */
+  function row(c, pl, addable, noSeq){
     /* règle française : le sous-titre reflète le barème réel (sans muter l'objet CATS partagé) */
-    var cLbl = c;
-    if(cfg().frenchScore && c.id === "carre") cLbl = { label:c.label, kind:null, sub:cfg().carreBonus+" + 4 identiques" };
-    else if(cfg().frenchScore && c.id === "yams") cLbl = { label:c.label, kind:null, sub:"50 + 5 identiques" };
+    var cLbl = c, fcm0 = cfg().frenchScore ? frenchCatMeta(c.id) : null;
+    if(fcm0) cLbl = { label:c.label, kind:null, sub:fcm0.rowSub };
     var h = "<tr><th data-info='"+c.id+"'>"+catLabel(cLbl)+"</th>";
     var admin = adminMode && canAdmin();
     pl.forEach(function(p,i){
       columns().forEach(function(col){
         var v = colVal(p, col.id, c.id), ed = canEdit(p);
         var filled = !(v===undefined||v===null);
-        var seqNext = (!admin && ed) ? nextSeqCat(p, col.id) : null;  /* prochaine case autorisée (Desc/Mont) */
+        var seqNext = (!admin && ed && !noSeq) ? nextSeqCat(p, col.id) : null;  /* prochaine case autorisée (Desc/Mont) */
         var seqLocked = !filled && seqNext && seqNext !== c.id;
         var cls = (!filled ? "cell empty" : (v===0 ? "cell zero" : "cell"))+
                   (isMe(p)?" mecol":"")+(ed?"":" locked")+(seqLocked?" seqlock":"");
@@ -1312,6 +1353,14 @@
   function esc(s){ return String(s).replace(/[&<>"']/g,function(m){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m];
   });}
+
+  /* boutons d'un contrôle segmenté (reconstruits à chaque rendu, un seul actif à la fois) ;
+     le conteneur `.seg` reste à la charge de l'appelant, seul le contenu est mutualisé ici */
+  function segButtons(attr, options, active){
+    return options.map(function(o){
+      return "<button data-"+attr+"='"+o.v+"'"+(o.v===active?" class='on'":"")+">"+o.label+"</button>";
+    }).join("");
+  }
 
   /* ---------------- modales ---------------- */
   var backdrop = document.getElementById("backdrop");
@@ -1384,7 +1433,7 @@
       opts = [{v:0,label:"✕"}];
       for(var kpm=5;kpm<=30;kpm++) opts.push({v:kpm,label:String(kpm)});
     } else {
-      var c = BYID[catId], fr = cfg().frenchScore;
+      var c = BYID[catId], fcm = cfg().frenchScore ? frenchCatMeta(catId) : null;
       title = c.label;
       sel = colVal(p, cur.col, catId);
       if(c.sec==="up"){
@@ -1392,18 +1441,9 @@
         opts = [0,1,2,3,4,5].map(function(k){
           return { v:k*c.face, label: k? String(k*c.face) : "✕", tag: k? k+" dé"+(k>1?"s":"") : "barré" };
         });
-      } else if(fr && catId==="carre"){
-        sub = p.name + " — carré de quelle face ? ("+cfg().carreBonus+" + 4 dés)";
-        opts = [1,2,3,4,5,6].map(function(f){
-          var v = cfg().carreBonus + 4*f; return { v:v, label:String(v), tag:"carré de "+f };
-        });
-        opts.push({v:0,label:"✕",tag:"barré"});
-      } else if(fr && catId==="yams"){
-        sub = p.name + " — Yam's de quelle face ? (50 + 5 dés)";
-        opts = [1,2,3,4,5,6].map(function(f){
-          var v = 50 + 5*f; return { v:v, label:String(v), tag:"yam's de "+f };
-        });
-        opts.push({v:0,label:"✕",tag:"barré"});
+      } else if(fcm){
+        sub = p.name + " — " + fcm.optSub;
+        opts = fcm.opts;
       } else if(c.kind==="fixed"){
         sub = p.name + " — combinaison réussie ?";
         opts = [{v:c.value,label:String(c.value),tag:"réussi"},{v:0,label:"✕",tag:"barré"}];
@@ -1423,17 +1463,11 @@
     if(rule){
       title = rule.title;
       sub = rule.sub || "Calculé automatiquement";
-    } else if(cfg().frenchScore && id === "carre"){
-      title = "Carré";
-      sub = "Section basse (française) · "+cfg().carreBonus+" + somme des 4 dés";
-      rule = { desc:"Au moins 4 dés identiques. Vous marquez "+cfg().carreBonus+" points, plus la somme "+
-               "de ces 4 dés (le 5ᵉ dé ne compte pas).",
-               ex:"⚂⚂⚂⚂⚅", exN:"carré de 3 = "+cfg().carreBonus+" + 3+3+3+3 = "+(cfg().carreBonus+12)+" points" };
-    } else if(cfg().frenchScore && id === "yams"){
-      title = "Yam's";
-      sub = "Section basse (française) · 50 + somme des 5 dés";
-      rule = { desc:"Les 5 dés identiques. Vous marquez 50 points, plus la somme des 5 dés.",
-               ex:"⚅⚅⚅⚅⚅", exN:"Yam's de 6 = 50 + 6×5 = 80 points" };
+    } else if(cfg().frenchScore && frenchCatMeta(id)){
+      var fcm = frenchCatMeta(id);
+      title = BYID[id].label;
+      sub = fcm.infoSub;
+      rule = { desc:fcm.infoDesc, ex:fcm.infoEx, exN:fcm.infoExN };
     } else {
       var c = BYID[id];
       rule = c; title = c.label;
@@ -1540,21 +1574,26 @@
   function applyPreset(name){
     var c = cfg();
     c.preset = name;
-    if(name === "classic"){ c.frenchScore=false; c.plusMinus=false; c.upperBonus={threshold:63,value:35}; c.yamsBonus=100; }
-    else if(name === "french"){ c.frenchScore=true; c.plusMinus=true; c.carreBonus=40; c.upperBonus={threshold:63,value:35}; c.yamsBonus=100; }
+    if(name === "classic" || name === "french"){
+      /* les deux presets fixes repartent du même barème de bonus, puis ne divergent que sur le reste */
+      c.upperBonus = { threshold:63, value:35 };
+      c.yamsBonus = 100;
+      c.frenchScore = (name === "french");
+      c.plusMinus = (name === "french");
+      if(name === "french") c.carreBonus = 40;
+    }
     /* 'custom' : on garde les valeurs actuelles, on affiche juste les champs de réglage */
     save(); render(); renderPlayers();
   }
 
+  var PRESET_OPTS = [ {v:"classic",label:"Classique"}, {v:"french",label:"Française"}, {v:"custom",label:"Personnalisé"} ];
   function renderRules(){
     var c = cfg(), locked = gameStarted();
     var preset = c.preset || "classic";
     var h = "<div class='rulespick"+(locked?" locked":"")+"'>"+
       "<div class='colpick-t'>Règles"+(locked?" (verrouillé)":"")+"</div>"+
       "<div class='seg'>"+
-        "<button data-preset='classic'"+(preset==="classic"?" class='on'":"")+">Classique</button>"+
-        "<button data-preset='french'"+(preset==="french"?" class='on'":"")+">Française</button>"+
-        "<button data-preset='custom'"+(preset==="custom"?" class='on'":"")+">Personnalisé</button>"+
+        segButtons("preset", PRESET_OPTS, preset)+
       "</div>";
     if(preset === "custom"){
       h += "<div class='rc'>"+
@@ -1577,15 +1616,19 @@
     var b = e.target.closest("[data-preset]"); if(!b || gameStarted()) return;
     applyPreset(b.getAttribute("data-preset"));
   });
+  /* parse un champ numérique ; ne retombe sur `fallback` que si la saisie est réellement
+     invalide (vide, non numérique) — un 0 tapé volontairement doit rester 0 */
+  function numIn(v, fallback){ var n = parseInt(v,10); return isNaN(n) ? fallback : n; }
+
   document.getElementById("mp-rules").addEventListener("change", function(e){
     if(gameStarted()) return;
     var c = cfg(), t = e.target;
     if(t.id === "rc-french"){ c.frenchScore = t.checked; }
     else if(t.id === "rc-pm"){ c.plusMinus = t.checked; }
-    else if(t.id === "rc-ubt"){ c.upperBonus.threshold = Math.max(1, parseInt(t.value,10) || 63); }
-    else if(t.id === "rc-ubv"){ c.upperBonus.value = Math.max(0, parseInt(t.value,10) || 0); }
-    else if(t.id === "rc-yb"){ c.yamsBonus = Math.max(0, parseInt(t.value,10) || 0); }
-    else if(t.id === "rc-cb"){ c.carreBonus = Math.max(0, parseInt(t.value,10) || 0); }
+    else if(t.id === "rc-ubt"){ c.upperBonus.threshold = Math.max(1, numIn(t.value, 63)); }
+    else if(t.id === "rc-ubv"){ c.upperBonus.value = Math.max(0, numIn(t.value, 0)); }
+    else if(t.id === "rc-yb"){ c.yamsBonus = Math.max(0, numIn(t.value, 0)); }
+    else if(t.id === "rc-cb"){ c.carreBonus = Math.max(0, numIn(t.value, 0)); }
     else return;
     save(); render(); renderRules();
   });
@@ -1804,13 +1847,25 @@
     brelan:21.66, carre:13.10, full:22.59, petite:29.46,
     grande:24.32, yams:16.87, chance:22.01
   };
+  /* En règle française, Carré et Yam's ne rapportent plus les mêmes points (bonus fixe +
+     somme des dés au lieu de somme brute / valeur fixe) : la valeur de référence doit
+     suivre, sinon l'assistant les sur-évalue massivement. Écart moyen dérivé des formules :
+     le Carré perd le 5ᵉ dé libre (moyenne 3,5) mais gagne le bonus ; le Yam's gagne la
+     somme des 5 dés (moyenne 5×3,5 = 17,5) en plus des 50 points fixes déjà comptés. */
+  function effBase(id){
+    var b = BASE[id];
+    if(!cfg().frenchScore) return b;
+    if(id === "carre") return b + (cfg().carreBonus - 3.5);
+    if(id === "yams") return b + 17.5;
+    return b;
+  }
 
   /* classement des cases ouvertes pour un tirage */
   function rankCats(dice, p, open, live){
     var yb = (isYams(dice) && colVal(p, mainCol(), "yams") > 0) ? 100 : 0;   /* Yam's déjà réussi : 50 (classique) ou 50+somme (français) */
     return open.map(function(id){
       var pts = scoreCat(id, dice), c = BYID[id];
-      var v = pts - BASE[id] + yb;
+      var v = pts - effBase(id) + yb;
       /* tant que le bonus des 63 est jouable, tenir la cadence de 3 dés par face compte */
       if(c.sec === "up" && live) v += 0.7 * (pts - 3*c.face);
       return { cat:id, pts:pts, v:v, yb:yb };
@@ -2188,8 +2243,8 @@
   /* une partie archivée : date + une ligne par joueur */
   function archive(){
     var rec = { d: Date.now(), p: state.players.map(function(p){
-      return { n:(p.name||"?").trim(), t:grand(p), u:sumUp(p), b:bonusUp(p)?1:0,
-               y:colVal(p,mainCol(),"yams")||0, yb:colBonus(p,mainCol()) };
+      return { n:(p.name||"?").trim(), t:grand(p), u:sumUpAll(p), b:bonusAchievedAny(p)?1:0,
+               y:yamsAchievedVal(p), yb:bonusYamsAll(p) };
     })};
     var h = loadHist(); h.push(rec); saveHist(h);
     state.archived = true;
@@ -2334,6 +2389,7 @@
 
   /* ---------------- thème clair / sombre ---------------- */
   var THEMEKEY = "yams.theme.v1";
+  var THEME_OPTS = [ {v:"system",label:"Système"}, {v:"light",label:"Clair"}, {v:"dark",label:"Sombre"} ];
   function themePref(){ try{ return localStorage.getItem(THEMEKEY) || "system"; }catch(e){ return "system"; } }
   function applyTheme(t){
     try{
@@ -2398,9 +2454,7 @@
       "<div class='set-theme'>"+
         "<div class='set-n'>Apparence</div>"+
         "<div class='seg' style='margin-top:8px'>"+
-          "<button data-theme-set='system'"+(tp==="system"?" class='on'":"")+">Système</button>"+
-          "<button data-theme-set='light'"+(tp==="light"?" class='on'":"")+">Clair</button>"+
-          "<button data-theme-set='dark'"+(tp==="dark"?" class='on'":"")+">Sombre</button>"+
+          segButtons("theme-set", THEME_OPTS, tp)+
         "</div>"+
       "</div>"+
       "<div class='set'><div class='set-b'>"+
@@ -2662,11 +2716,9 @@
                order:(typeof p.order==="number"?p.order:0),
                s:p.s||{}, bonusYams:p.yb||{}, corrected:p.corrected||{} });
     }).sort(function(a,b){ return a.order-b.order || (a.id<b.id?-1:1); });
-    /* tour de jeu partagé (Firebase peut renvoyer l'ordre en tableau ou en objet) */
-    var t = OL.data.turn, ord = [];
-    if(t && t.order) ord = Array.isArray(t.order) ? t.order.slice()
-                          : Object.keys(t.order).sort(function(a,b){return a-b;}).map(function(k){ return t.order[k]; });
-    state.turn = { order: ord, pos: (t && typeof t.pos==="number") ? t.pos : 0 };
+    /* tour de jeu partagé */
+    var t = OL.data.turn;
+    state.turn = { order: fbArray(t && t.order), pos: (t && typeof t.pos==="number") ? t.pos : 0 };
     render();
     if(mOnline.classList.contains("on")) renderOnlineModal();
     if(mPlayers.classList.contains("on")) close();
