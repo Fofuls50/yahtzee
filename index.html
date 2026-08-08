@@ -2937,6 +2937,7 @@
   });
 
   function freshLocalGame(){
+    teardown();   /* ferme toute session en ligne active pour qu'une mise à jour tardive ne vienne pas écraser la nouvelle partie locale */
     state = { players:[ mk("Joueur 1"), mk("Joueur 2") ], config: defaultConfig(), turn:{ order:[], pos:0 } };
     adminMode = false;
     save(); render();
